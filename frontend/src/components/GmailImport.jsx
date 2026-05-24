@@ -44,16 +44,16 @@ export function GmailImport({ onImport }) {
   };
 
   return (
-    <div className="space-y-3 rounded-xl border border-white/10 p-5">
+    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-200">Gmail Integration</p>
-          <p className="text-xs text-gray-500 mt-0.5">Scan your inbox for received resumes</p>
+          <p className="text-sm font-semibold text-slate-900">Gmail Integration</p>
+          <p className="mt-0.5 text-xs text-slate-500">Scan your inbox for received resumes</p>
         </div>
         <button
           onClick={handleSync}
           disabled={isLoading}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
           {isLoading ? 'Syncing...' : 'Sync'}
@@ -61,28 +61,28 @@ export function GmailImport({ onImport }) {
       </div>
 
       <div className="space-y-1">
-        <label className="text-xs text-gray-500">Subject filter</label>
+        <label className="text-xs text-slate-500">Subject filter</label>
         <input
           type="text"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           placeholder="e.g., Resume Submission"
-          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-200 placeholder-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all"
+          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 transition-all focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10"
           disabled={isLoading}
         />
       </div>
 
       {status === 'success' && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border border-green-500/20 rounded-lg">
-          <CheckCircle className="text-green-400 flex-shrink-0" size={14} />
-          <p className="text-xs text-green-400">Imported {fetchedCount} resume(s)</p>
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+          <CheckCircle className="flex-shrink-0 text-emerald-500" size={14} />
+          <p className="text-xs text-emerald-700">Imported {fetchedCount} resume(s)</p>
         </div>
       )}
 
       {status === 'error' && (
-        <div className="flex items-start gap-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg">
-          <AlertCircle className="text-red-400 flex-shrink-0 mt-0.5" size={14} />
-          <p className="text-xs text-red-400">{errorMessage || 'Failed to fetch resumes'}</p>
+        <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
+          <AlertCircle className="mt-0.5 flex-shrink-0 text-rose-500" size={14} />
+          <p className="text-xs text-rose-700">{errorMessage || 'Failed to fetch resumes'}</p>
         </div>
       )}
     </div>

@@ -1,65 +1,177 @@
+"""
+Backend/app/main.py
+FastAPI entry point for the Resume Ranking System.
+"""
+
+# ── Path setup (must be first) ───────────────────────────────────────────────
+import sys
+import os
+
+# Force UTF-8 on Windows terminals
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except AttributeError:
+        pass
+
+# Add project root to sys.path so 'database' and 'Agent' modules are found
+MAIN_DIR     = os.path.dirname(os.path.abspath(__file__))
+BACKEND_DIR  = os.path.dirname(MAIN_DIR)
+PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
+AGENT_DIR    = os.path.join(PROJECT_ROOT, "Agent")
+
+for _path in (PROJECT_ROOT, AGENT_DIR):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
+
+print(f"📁 Main.py   : {MAIN_DIR}")
+print(f"📁 Project   : {PROJECT_ROOT}")
+print(f"📁 Agent dir : {AGENT_DIR} (exists={os.path.exists(AGENT_DIR)})")
+
+# ── Env & stdlib ─────────────────────────────────────────────────────────────
+import io
+import json
+import logging
+from contextlib import asynccontextmanager
+from typing import List, Optional
+
 from dotenv import load_dotenv
 load_dotenv()
 
-import json  # ← ADD THIS LINE
-
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+# ── FastAPI & middleware ──────────────────────────────────────────────────────
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
-from typing import List, Optional
-import sys
-import os
-import io
 
+# ── Logging setup ─────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger(__name__)
+
+# ── Gmail token bootstrap ─────────────────────────────────────────────────────
 _gmail_token = os.getenv("GMAIL_TOKEN")
 if _gmail_token:
-    # Running on Render — write token.json from environment variable
-    _token_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Agent", "my_agent", "token.json")
+    _token_path = os.path.join(AGENT_DIR, "my_agent", "token.json")
     os.makedirs(os.path.dirname(_token_path), exist_ok=True)
-    with open(_token_path, "w") as f:
-        json.dump(json.loads(_gmail_token), f)
-    print("✅ Gmail token.json written from environment variable")
+    with open(_token_path, "w") as _f:
+        json.dump(json.loads(_gmail_token), _f)
+    log.info("✅ Gmail token.json written from GMAIL_TOKEN env var")
 else:
-    print("ℹ️  No GMAIL_TOKEN env var found — using local token.json")
+    log.info("ℹ️  No GMAIL_TOKEN env var — using local token.json")
 
-# ── rest of your existing imports───────────────────────────────────────────
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+# ── MCP initialisation ───────────────────────────────────────────────────────
+mcp_app = None
+try:
+    from my_agent.mcp_server import app as mcp_app, init_db as mcp_init_db
+    mcp_init_db()
+    log.info("✅ MCP app imported & SQLite DB initialised")
+except Exception as _e:
+    log.warning(f"⚠️  MCP Server could not be initialised: {_e}")
 
-MAIN_DIR = os.path.dirname(os.path.abspath(__file__))
-BACKEND_DIR = os.path.dirname(MAIN_DIR)
-PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
-AGENT_DIR = os.path.join(PROJECT_ROOT, "Agent")
+# ── SSE transport ─────────────────────────────────────────────────────────────
+try:
+    from mcp.server.sse import SseServerTransport
+    sse_transport = SseServerTransport("/api/mcp/messages/")
+    _sse_available = True
+except Exception as _e:
+    log.warning(f"⚠️  SSE transport unavailable: {_e}")
+    _sse_available = False
 
-if AGENT_DIR not in sys.path:
-    sys.path.insert(0, AGENT_DIR)
+# ── Lifespan ──────────────────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    log.info("🚀 RecruitAI backend starting up …")
+    yield
+    log.info("🛑 RecruitAI backend shutting down …")
 
-print(f"Main.py location: {MAIN_DIR}")
-print(f"Project root: {PROJECT_ROOT}")
-print(f"Agent directory: {AGENT_DIR}")
-print(f"Agent directory exists: {os.path.exists(AGENT_DIR)}")
+# ── App instance ──────────────────────────────────────────────────────────────
+app = FastAPI(
+    title="RecruitAI API",
+    description="Resume Ranking System — FastAPI + SQLite + MCP",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
-app = FastAPI()
-
+# ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:3000",
+    ],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ── Validation error handler (fixes CORS on 422 + binary data crashes) ───────
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = []
+    for error in exc.errors():
+        errors.append({
+            "field": " -> ".join(str(loc) for loc in error.get("loc", [])),
+            "message": error.get("msg", "Validation error"),
+            "type": error.get("type", ""),
+        })
+    log.warning(f"Validation error on {request.url.path}: {errors}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "Request validation failed", "errors": errors},
+    )
 
-# ── Text extraction helpers ──────────────────────────────────────────────────
+# ── Global exception handler ──────────────────────────────────────────────────
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    log.error(f"Unhandled exception on {request.url}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": str(exc)},
+    )
 
+# ── Routers ───────────────────────────────────────────────────────────────────
+from .routes.auth  import router as auth_router
+from .routes.match import router as match_router
+
+app.include_router(auth_router,  prefix="/api")
+app.include_router(match_router, prefix="/api")
+
+# ── MCP SSE endpoints ─────────────────────────────────────────────────────────
+if _sse_available:
+    @app.get("/api/mcp/sse", tags=["MCP"])
+    async def handle_sse(request: Request):
+        if mcp_app is None:
+            raise HTTPException(status_code=503, detail="MCP Server not initialised.")
+        log.info("🔌 New MCP SSE connection")
+        async with sse_transport.connect_sse(
+            request.scope, request.receive, request._send
+        ) as (read_stream, write_stream):
+            await mcp_app.run(
+                read_stream, write_stream,
+                mcp_app.create_initialization_options()
+            )
+    app.mount("/api/mcp/messages", sse_transport.handle_post_message)
+
+# ── Text extraction helpers ───────────────────────────────────────────────────
 def extract_text_from_pdf(file_bytes: bytes) -> str:
     try:
-        import fitz  # pymupdf
+        import fitz
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         return "\n".join(page.get_text() for page in doc).strip()
     except Exception as e:
-        print(f"PDF extraction error: {e}")
+        log.error(f"PDF extraction failed: {e}")
         return ""
-
 
 def extract_text_from_docx(file_bytes: bytes) -> str:
     try:
@@ -67,172 +179,231 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
         doc = Document(io.BytesIO(file_bytes))
         return "\n".join(p.text for p in doc.paragraphs).strip()
     except Exception as e:
-        print(f"DOCX extraction error: {e}")
+        log.error(f"DOCX extraction failed: {e}")
         return ""
 
-
 def extract_text(filename: str, file_bytes: bytes) -> str:
-    ext = filename.lower().rsplit(".", 1)[-1]
+    """Safely extract text from PDF, DOCX, or TXT — never crashes on binary data."""
+    if not file_bytes:
+        return ""
+    ext = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
     if ext == "pdf":
         return extract_text_from_pdf(file_bytes)
-    elif ext in ("docx", "doc"):
+    if ext in ("docx", "doc"):
         return extract_text_from_docx(file_bytes)
-    elif ext == "txt":
+    if ext == "txt":
         return file_bytes.decode("utf-8", errors="ignore")
     return ""
 
-
-# ── Models ───────────────────────────────────────────────────────────────────
-
+# ── Pydantic models ───────────────────────────────────────────────────────────
 class GmailFetchRequest(BaseModel):
-    subject: Optional[str] = "Resume Analyzing"
+    subject: Optional[str] = None
 
+class JobIn(BaseModel):
+    title: str
+    company: Optional[str] = None
+    description: str
+    requirements: str
 
-class GmailCandidate(BaseModel):
-    candidate_name: str
-    email: Optional[str] = ""
-    resume_text: Optional[str] = ""
-    source: Optional[str] = "gmail"
-    years_experience: Optional[int] = 0
-    education: Optional[dict] = {"degree": "Not specified", "university": "Not specified"}
-    skills: Optional[list] = []
-    tools: Optional[list] = []
-    projects: Optional[list] = []
-    soft_skills: Optional[list] = []
-
-
-# ── Routes ───────────────────────────────────────────────────────────────────
-
-@app.get("/")
+# ── Health ────────────────────────────────────────────────────────────────────
+@app.get("/", tags=["Health"])
 def read_root():
-    return {"message": "RecruitAI API is running"}
+    return {"message": "RecruitAI API is running ✅", "docs": "/docs"}
 
+@app.get("/api/health", tags=["Health"])
+def health_check():
+    return {
+        "status": "ok",
+        "mcp_ready": mcp_app is not None,
+        "sse_ready": _sse_available,
+    }
 
-@app.post("/api/gmail/fetch")
+# ── Resumes ───────────────────────────────────────────────────────────────────
+@app.get("/api/resumes", tags=["Resumes"])
+def list_resumes():
+    try:
+        from my_agent.mcp_server import handle_tool
+        return handle_tool("get_all_resumes", {})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/resumes/{resume_id}", tags=["Resumes"])
+def get_resume(resume_id: int):
+    try:
+        from my_agent.mcp_server import handle_tool
+        result = handle_tool("get_resume", {"resume_id": resume_id})
+        if not result:
+            raise HTTPException(status_code=404, detail="Resume not found")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ── Jobs ──────────────────────────────────────────────────────────────────────
+@app.get("/api/jobs", tags=["Jobs"])
+def list_jobs():
+    try:
+        from my_agent.mcp_server import handle_tool
+        return handle_tool("get_all_jobs", {})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/jobs", tags=["Jobs"])
+def create_job(job: JobIn):
+    try:
+        from my_agent.mcp_server import handle_tool
+        return handle_tool("save_job", job.model_dump())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ── Rankings ──────────────────────────────────────────────────────────────────
+@app.get("/api/rankings/{job_id}", tags=["Rankings"])
+def get_rankings(job_id: int, limit: int = 20):
+    try:
+        from my_agent.mcp_server import handle_tool
+        return handle_tool("get_rankings_for_job", {"job_id": job_id, "limit": limit})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/matches/{job_id}", tags=["Rankings"])
+def get_matches(job_id: int, status: Optional[str] = None):
+    try:
+        from my_agent.mcp_server import handle_tool
+        args = {"job_id": job_id}
+        if status:
+            args["status"] = status
+        return handle_tool("get_matches_for_job", args)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ── Gmail ─────────────────────────────────────────────────────────────────────
+@app.post("/api/gmail/fetch", tags=["Gmail"])
 def fetch_gmail_resumes(request: GmailFetchRequest):
-    """Fetch resumes from Gmail using the agent's gmail tool"""
+    """Fetch resumes from Gmail filtered by subject."""
     try:
         from my_agent.tools.gmail_tool import fetch_resumes_from_gmail
-        print("✅ Successfully imported gmail tool")
 
-        resumes = fetch_resumes_from_gmail(subject=request.subject)
-        print(f"📧 Fetched {len(resumes)} resumes from Gmail")
+        if not request.subject or not request.subject.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Please provide an email subject to filter by."
+            )
 
-        candidates = []
-        for resume in resumes:
-            candidate = {
-                "candidate_name": (
-                    resume.get("filename", "Unknown")
-                    .replace(".pdf", "").replace(".txt", "").replace(".docx", "")
-                    .replace("_", " ").strip()
-                ),
+        subject = request.subject.strip()
+        resumes = fetch_resumes_from_gmail(subject=subject)
+        log.info(f"📧 Fetched {len(resumes)} resumes for subject: '{subject}'")
+
+        if not resumes:
+            return {
+                "success": False,
+                "count": 0,
+                "candidates": [],
+                "message": f"No resumes found for subject: '{subject}'"
+            }
+
+        candidates = [
+            {
+                "candidate_name": r.get("filename", "Unknown")
+                    .rsplit(".", 1)[0].replace("_", " ").replace("-", " ").strip(),
                 "email": "",
-                "resume_text": resume.get("resume_text", ""),
+                "resume_text": r.get("resume_text", ""),
                 "source": "gmail",
                 "years_experience": 0,
                 "education": {"degree": "Not specified", "university": "Not specified"},
-                "skills": [],
-                "tools": [],
-                "projects": [],
-                "soft_skills": [],
+                "skills": [], "tools": [], "projects": [], "soft_skills": [],
             }
-            candidates.append(candidate)
+            for r in resumes
+        ]
+        return {
+            "success": True,
+            "count": len(candidates),
+            "subject": subject,
+            "candidates": candidates,
+        }
 
-        return {"success": True, "count": len(candidates), "candidates": candidates}
-
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Gmail fetch error: {e}")
-        import traceback; traceback.print_exc()
+        log.error(f"Gmail fetch error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/api/match")
+# ── Match / ranking pipeline ──────────────────────────────────────────────────
+@app.post("/api/match", tags=["Match"])
 async def match_candidates(
     job_title: str = Form(...),
     job_description: Optional[UploadFile] = File(None),
     resumes: List[UploadFile] = File(default=[]),
-    gmail_candidates: Optional[str] = Form(None),   # JSON string
+    gmail_candidates: Optional[str] = Form(None),
 ):
-    """
-    Match candidates against job requirements.
-    Accepts:
-      - job_title        : plain text form field
-      - job_description  : optional JD file (PDF/DOCX/TXT)
-      - resumes          : one or more resume files
-      - gmail_candidates : JSON array of candidates already fetched from Gmail
-    """
+    """Match candidates against a job description."""
     try:
         from .services.agent_bridge import run_matching_pipeline
 
-        # 1. Extract JD text
+        # 1. Extract JD text safely
         jd_text = ""
         if job_description and job_description.filename:
-            jd_bytes = await job_description.read()
-            jd_text = extract_text(job_description.filename, jd_bytes)
-            print(f"📄 JD extracted ({len(jd_text)} chars) from: {job_description.filename}")
+            try:
+                jd_bytes = await job_description.read()
+                jd_text = extract_text(job_description.filename, jd_bytes)
+                log.info(f"📄 JD extracted ({len(jd_text)} chars): {job_description.filename}")
+            except Exception as e:
+                log.warning(f"Could not extract JD text: {e}")
 
-        # 2. Extract text from uploaded resume files
-        uploaded_candidates = []
-        for resume_file in resumes:
-            if not resume_file.filename:
+        # 2. Extract uploaded resumes safely
+        uploaded = []
+        for f in resumes:
+            if not f.filename:
                 continue
-            resume_bytes = await resume_file.read()
-            resume_text = extract_text(resume_file.filename, resume_bytes)
-            candidate_name = (
-                resume_file.filename
-                .rsplit(".", 1)[0]
-                .replace("_", " ")
-                .replace("-", " ")
-                .strip()
-            )
-            uploaded_candidates.append({
-                "candidate_name": candidate_name,
-                "email": "",
-                "resume_text": resume_text,
-                "source": "upload",
-                "years_experience": 0,
-                "education": {"degree": "Not specified", "university": "Not specified"},
-                "skills": [],
-                "tools": [],
-                "projects": [],
-                "soft_skills": [],
-            })
-            print(f"📝 Resume extracted ({len(resume_text)} chars): {resume_file.filename}")
+            try:
+                raw = await f.read()
+                text = extract_text(f.filename, raw)
+                uploaded.append({
+                    "candidate_name": f.filename.rsplit(".", 1)[0]
+                        .replace("_", " ").replace("-", " ").strip(),
+                    "email": "",
+                    "resume_text": text,
+                    "source": "upload",
+                    "years_experience": 0,
+                    "education": {"degree": "Not specified", "university": "Not specified"},
+                    "skills": [], "tools": [], "projects": [], "soft_skills": [],
+                })
+                log.info(f"📝 Resume extracted ({len(text)} chars): {f.filename}")
+            except Exception as e:
+                log.warning(f"Skipping {f.filename}: {e}")
+                continue
 
-        # 3. Parse Gmail candidates from JSON string
+        # 3. Parse Gmail candidates safely
         gmail_list = []
         if gmail_candidates:
-            import json
             try:
                 gmail_list = json.loads(gmail_candidates)
-                print(f"📧 Gmail candidates received: {len(gmail_list)}")
+                log.info(f"📧 Gmail candidates: {len(gmail_list)}")
             except json.JSONDecodeError as e:
-                print(f"⚠️ Failed to parse gmail_candidates JSON: {e}")
+                log.warning(f"Could not parse gmail_candidates JSON: {e}")
 
-        # 4. Combine all candidates
-        all_candidates = uploaded_candidates + gmail_list
-        print(f"🚀 Total candidates to rank: {len(all_candidates)}")
+        # 4. Combine & validate
+        all_candidates = uploaded + gmail_list
+        log.info(f"🚀 Total candidates: {len(all_candidates)}")
 
         if not all_candidates:
             raise HTTPException(status_code=400, detail="No candidates provided.")
 
         # 5. Run pipeline
-        result = run_matching_pipeline(
+        return run_matching_pipeline(
             job_title=job_title,
             candidates=all_candidates,
             job_description_text=jd_text,
         )
 
-        return result
-
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Matching error: {e}")
+        log.error(f"Match pipeline error: {e}")
         import traceback; traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-
+# ── Dev runner ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

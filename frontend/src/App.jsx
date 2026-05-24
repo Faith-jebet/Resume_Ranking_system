@@ -8,6 +8,7 @@ import { LayoutList, FilePlus, Sparkles, UserCheck, Menu, ChevronDown, ChevronUp
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { cn } from './lib/utils';
+import { useAuth } from './context/AuthContext';
 
 // ── CriteriaPanel (UI) 
 function CriteriaPanel({ criteria }) {
@@ -18,6 +19,7 @@ function CriteriaPanel({ criteria }) {
 
 // App 
 function App() {
+  const { user, logout } = useAuth();
   const [jobTitle, setJobTitle]               = useState('');
   const [activeTab, setActiveTab]             = useState('Dashboard');
   const [resumes, setResumes]                 = useState([]);
@@ -29,7 +31,7 @@ function App() {
   const [error, setError]                     = useState(null);
   const [sidebarOpen, setSidebarOpen]         = useState(false);
 
-  // ── Gmail import ────────────────────────────────────────────────────────────
+  //  Gmail import 
   const handleGmailImport = (importedCandidates) => {
     if (importedCandidates && importedCandidates.length > 0) {
       setGmailCandidates(importedCandidates);
@@ -39,7 +41,7 @@ function App() {
     }
   };
 
-  // ── Rank handler ────────────────────────────────────────────────────────────
+  // Rank handler 
   const handleRank = async () => {
     if (!jobTitle.trim()) {
       setError('Please enter a job title');
@@ -87,7 +89,7 @@ function App() {
     }
   };
 
-  // ── PDF report ──────────────────────────────────────────────────────────────
+  // pdf report
   const generatePDF = () => {
     const doc    = new jsPDF();
     const pageW  = doc.internal.pageSize.getWidth();
@@ -98,7 +100,7 @@ function App() {
     const mid    = [80, 80, 80];
     const lightG = [150, 150, 150];
 
-    // ── Header bar ────────────────────────────────────────────────────────────
+    //Header bar
     doc.setFillColor(...blue);
     doc.rect(0, 0, pageW, 38, 'F');
     doc.setFontSize(20);
@@ -115,7 +117,7 @@ function App() {
 
     let cursorY = 48;
 
-    // ── Section title helper ──────────────────────────────────────────────────
+    // Section title helper
     const drawSectionTitle = (label) => {
       if (cursorY > pageH - 60) { doc.addPage(); cursorY = 20; }
       doc.setFontSize(12);
@@ -305,7 +307,7 @@ function App() {
 
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-20 bg-black/60 lg:hidden"
+          className="fixed inset-0 z-20 bg-slate-950/30 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -317,15 +319,15 @@ function App() {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <Sidebar activeTab={activeTab} onTabChange={handleTabChange} />
+        <Sidebar activeTab={activeTab} onTabChange={handleTabChange} onLogout={logout} />
       </div>
 
-      <main className="flex-1 lg:ml-64 p-4 sm:p-6 lg:p-10 space-y-6 lg:space-y-8 w-full min-w-0">
+      <main className="min-w-0 flex-1 space-y-6 bg-transparent p-4 sm:p-6 lg:ml-64 lg:space-y-8 lg:p-10">
 
         <header className="flex items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <button
-              className="lg:hidden flex-shrink-0 p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+              className="flex-shrink-0 rounded-lg border border-slate-200 bg-white p-2 transition-colors hover:bg-slate-50 lg:hidden"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open menu"
             >
@@ -335,22 +337,30 @@ function App() {
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">
                 {activeTab}
               </h2>
-              <p className="text-gray-400 mt-1 text-sm sm:text-base hidden sm:block">
+              <p className="mt-1 hidden text-sm text-slate-500 sm:block sm:text-base">
                 {tabSubtitle[activeTab] || ''}
               </p>
             </div>
           </div>
 
-          <div className="glass flex-shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl flex items-center gap-2 sm:gap-3 border border-white/5">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs sm:text-sm font-medium whitespace-nowrap">AI Online</span>
+          <div className="flex flex-shrink-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm sm:gap-3 sm:px-4 sm:py-2">
+            <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+            <span className="whitespace-nowrap text-xs font-medium text-slate-700 sm:text-sm">AI Online</span>
+            <span className="hidden text-xs text-slate-400 sm:inline">{user?.name || user?.email || 'Authenticated'}</span>
+            <button
+              type="button"
+              onClick={logout}
+              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700"
+            >
+              Sign out
+            </button>
           </div>
         </header>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg animate-in fade-in">
+          <div className="animate-in fade-in rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
             <p className="font-semibold">Error:</p>
-            <p className="text-sm">{error}</p>
+            <p className="text-sm text-rose-700">{error}</p>
           </div>
         )}
 
@@ -370,15 +380,15 @@ function App() {
             <div className="space-y-6">
               <div className="glass-card p-4 sm:p-6 space-y-4">
                 <div className="flex items-center gap-3">
-                  <UserCheck className="text-blue-400 flex-shrink-0" size={24} />
-                  <h3 className="text-lg sm:text-xl font-bold">Job Title</h3>
+                  <UserCheck className="flex-shrink-0 text-blue-700" size={24} />
+                  <h3 className="text-lg font-bold sm:text-xl">Job Title</h3>
                 </div>
                 <input
                   type="text"
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
                   placeholder="e.g., Senior Full Stack Developer"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm sm:text-base"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm transition-all placeholder:text-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 sm:text-base"
                 />
               </div>
 
@@ -391,10 +401,10 @@ function App() {
                 maxFiles={1}
               />
 
-              <div className="glass-card flex flex-col items-center justify-center p-6 sm:p-8 gap-4 sm:gap-6 text-center">
-                <Sparkles size={28} className="text-blue-400" />
-                <h3 className="text-lg sm:text-xl font-bold">Ready to Rank?</h3>
-                <p className="text-xs sm:text-sm text-gray-400">
+              <div className="glass-card flex flex-col items-center justify-center gap-4 p-6 text-center sm:gap-6 sm:p-8">
+                <Sparkles size={28} className="text-blue-700" />
+                <h3 className="text-lg font-bold sm:text-xl">Ready to Rank?</h3>
+                <p className="text-xs text-slate-500 sm:text-sm">
                   {resumes.length} uploaded resume(s)
                   &bull; {gmailCandidates.length} Gmail resume(s)
                   &bull; {jdFile ? '1 JD uploaded' : 'No JD'}
@@ -431,7 +441,7 @@ function App() {
             <div className="overflow-x-auto">
               <CandidateTable candidates={candidates} onDownloadReport={generatePDF} />
               {candidates.length === 0 && (
-                <div className="p-12 sm:p-20 text-center text-gray-400">
+                <div className="p-12 text-center text-slate-500 sm:p-20">
                   <LayoutList size={48} className="mx-auto mb-4 opacity-20" />
                   <p className="text-sm sm:text-base">No candidates ranked yet. Go to Dashboard to start.</p>
                 </div>

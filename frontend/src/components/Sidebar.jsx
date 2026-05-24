@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Users } from 'lucide-react';
+import { BarChart3, LogOut, Users } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 const navItems = [
@@ -7,11 +7,14 @@ const navItems = [
   { icon: Users, label: 'Candidates' },
 ];
 
-export function Sidebar({ activeTab, onTabChange }) {
+export function Sidebar({ activeTab, onTabChange, onLogout }) {
   return (
-    <aside className="w-64 h-screen border-r border-white/10 bg-black/20 flex flex-col fixed left-0 top-0">
+    <aside className="flex h-screen w-64 flex-col border-r border-slate-200 bg-white/90 backdrop-blur fixed left-0 top-0 shadow-sm">
       <div className="px-6 py-7">
-        <h1 className="text-base font-semibold tracking-tight text-white">RecruitAI</h1>
+        <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-blue-800">
+          RecruitAI
+        </div>
+        <p className="mt-3 text-sm text-slate-500">Candidate ranking workspace</p>
       </div>
 
       <nav className="flex-1 px-3 space-y-0.5">
@@ -22,8 +25,8 @@ export function Sidebar({ activeTab, onTabChange }) {
             className={cn(
               "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
               activeTab === item.label
-                ? "bg-white/10 text-white"
-                : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
+                ? "bg-blue-50 text-blue-800 border border-blue-100"
+                : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
             )}
           >
             <item.icon size={16} />
@@ -31,6 +34,16 @@ export function Sidebar({ activeTab, onTabChange }) {
           </button>
         ))}
       </nav>
+
+      <div className="p-3">
+        <button
+          onClick={onLogout}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white"
+        >
+          <LogOut size={16} />
+          Sign out
+        </button>
+      </div>
     </aside>
   );
 }

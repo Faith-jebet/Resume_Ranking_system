@@ -1,5 +1,29 @@
 const API_BASE = import.meta.env.VITE_API_URL || "https://recruitai-backend-418779851337.us-central1.run.app";
 
+
+const TOKEN_KEY = 'recruitai_auth_token';
+
+export function getStoredToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function storeToken(token) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearStoredToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+async function parseResponse(response) {
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(error.detail || `Server error: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 /**
  * Send real resume files + JD file to the backend for AI ranking.
  *
@@ -40,12 +64,7 @@ export async function matchCandidates(
     // Do NOT set Content-Type — browser sets it automatically with boundary
   });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Unknown error" }));
-    throw new Error(error.detail || `Server error: ${response.status}`);
-  }
-
-  return response.json();
+  return parseResponse(response);
 }
 
 /**
@@ -60,10 +79,37 @@ export async function fetchGmailResumes(subject = "Resume Analyzing") {
     body: JSON.stringify({ subject }),
   });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Unknown error" }));
-    throw new Error(error.detail || `Server error: ${response.status}`);
-  }
+  return parseResponse(response);
+}
 
-  return response.json();
+export async function registerUser(payload) {
+  const response = await fetch(`${API_BASE}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse(response);
+}
+
+export async function loginUser(payload) {
+  const response = await fetch(`${API_BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse(response);
+}
+
+export async function fetchCurrentUser(token = getStoredToken()) {
+  if (!token) return null;
+
+  const response = await fetch(`${API_BASE}/api/auth/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return parseResponse(response);
 }
