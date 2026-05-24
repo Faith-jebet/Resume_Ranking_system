@@ -19,9 +19,9 @@ export function AuthLayout({ eyebrow, title, description, children, footer }) {
 
           <div className="mt-14 grid gap-4 sm:grid-cols-3">
             {[
-              ['Secure access', 'JWT-backed login keeps the workspace protected.'],
-              ['Fast matching', 'Resume ranking remains one click away after sign-in.'],
-              ['Clear control', 'A focused dashboard with calm, readable surfaces.'],
+              ['Protected hiring workspace', 'Keep candidate data and reviews secure.'],
+              ['Faster shortlisting', 'Rank resumes and surface top candidates quickly.'],
+              ['Clear review flow', 'A clean dashboard for confident hiring decisions.'],
             ].map(([heading, text]) => (
               <div key={heading} className="rounded-2xl border border-slate-200 bg-white/75 p-4 shadow-sm backdrop-blur">
                 <p className="text-sm font-semibold text-slate-900">{heading}</p>
