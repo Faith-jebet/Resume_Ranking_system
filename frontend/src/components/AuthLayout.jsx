@@ -6,9 +6,9 @@ export function AuthLayout({ eyebrow, title, description, children, footer }) {
       <div className="mx-auto grid min-h-screen max-w-7xl lg:grid-cols-[1.1fr_0.9fr]">
         <section className="relative flex flex-col justify-between px-6 py-10 sm:px-10 lg:px-14 lg:py-14">
           <div className="max-w-xl">
-            <div className="inline-flex items-center rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 text-xs font-semibold tracking-[0.18em] text-slate-500 shadow-sm backdrop-blur">
-              {eyebrow}
-            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-blue-800">
+          RecruitAI
+        </div>
             <h1 className="mt-8 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
               {title}
             </h1>

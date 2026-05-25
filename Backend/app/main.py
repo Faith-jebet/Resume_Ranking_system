@@ -31,6 +31,7 @@ print(f"📁 Agent dir : {AGENT_DIR} (exists={os.path.exists(AGENT_DIR)})")
 
 # ── Env & stdlib ─────────────────────────────────────────────────────────────
 import io
+import re                          # ← ADDED for name extraction
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -97,6 +98,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+from app.routers.documents import router as documents_router
+app.include_router(documents_router)
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
@@ -194,6 +198,49 @@ def extract_text(filename: str, file_bytes: bytes) -> str:
     if ext == "txt":
         return file_bytes.decode("utf-8", errors="ignore")
     return ""
+
+# ── Name extraction helper ────────────────────────────────────────────────────
+# ADDED: reads the actual resume text to find the candidate's real name
+# instead of using the filename (which was causing "Unknown Candidate").
+
+_SKIP_KEYWORDS = {
+    "resume", "curriculum", "cv", "objective", "summary", "experience",
+    "education", "skills", "profile", "references", "http", "www",
+    "linkedin", "github", "vitae", "portfolio", "contact",
+}
+
+def _clean_filename(filename: str) -> str:
+    return filename.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").strip()
+
+def extract_name_from_resume(resume_text: str, fallback_filename: str) -> str:
+    """
+    Scan the first 8 non-empty lines of a resume for a person's name.
+    A valid name is 2–5 capitalised words that is not a section header,
+    email address, phone number, or URL.
+    Falls back to the cleaned filename if no name is detected.
+    """
+    if not resume_text:
+        return _clean_filename(fallback_filename)
+
+    lines = [l.strip() for l in resume_text.splitlines() if l.strip()]
+
+    for line in lines[:8]:
+        # Skip known section headers
+        if any(kw in line.lower() for kw in _SKIP_KEYWORDS):
+            continue
+        # Skip lines with email / URL characters
+        if re.search(r"[@/\\|]", line):
+            continue
+        # Skip lines with long digit runs (phone numbers, IDs)
+        if re.search(r"\d{3,}", line):
+            continue
+        words = line.split()
+        if 2 <= len(words) <= 5:
+            # Every alphabetic word must start with a capital letter
+            if all(w[0].isupper() for w in words if w.isalpha()):
+                return line
+
+    return _clean_filename(fallback_filename)
 
 # ── Pydantic models ───────────────────────────────────────────────────────────
 class GmailFetchRequest(BaseModel):
@@ -302,23 +349,36 @@ def fetch_gmail_resumes(request: GmailFetchRequest):
                 "message": f"No resumes found for subject: '{subject}'"
             }
 
-        candidates = [
-            {
-                "candidate_name": r.get("filename", "Unknown")
-                    .rsplit(".", 1)[0].replace("_", " ").replace("-", " ").strip(),
-                "email": "",
-                "resume_text": r.get("resume_text", ""),
-                "source": "gmail",
+        # FIXED: extract real name from resume text instead of using filename
+        candidates = []
+        for r in resumes:
+            resume_text  = r.get("resume_text", "")
+            raw_filename = r.get("filename", "Unknown")
+            name         = extract_name_from_resume(resume_text, raw_filename)
+            email        = r.get("email", "")   # sender email if gmail_tool provides it
+
+            log.info(f"👤 Candidate parsed: '{name}' <{email or 'no email'}>")
+
+            candidates.append({
+                "candidate_name": name,
+                "email":          email,
+                "resume_text":    resume_text,
+                "source":         "gmail",
                 "years_experience": 0,
-                "education": {"degree": "Not specified", "university": "Not specified"},
+                "education":      {"degree": "Not specified", "university": "Not specified"},
                 "skills": [], "tools": [], "projects": [], "soft_skills": [],
-            }
-            for r in resumes
-        ]
+            })
+
+        from database.sqlite_db import create_import_session
+        import_id = create_import_session(
+            subject_filter=subject,
+            fetched_count=len(candidates),
+        )
+
         return {
-            "success": True,
-            "count": len(candidates),
-            "subject": subject,
+            "success":    True,
+            "count":      len(candidates),
+            "subject":    subject,
             "candidates": candidates,
         }
 
@@ -345,30 +405,31 @@ async def match_candidates(
         if job_description and job_description.filename:
             try:
                 jd_bytes = await job_description.read()
-                jd_text = extract_text(job_description.filename, jd_bytes)
+                jd_text  = extract_text(job_description.filename, jd_bytes)
                 log.info(f"📄 JD extracted ({len(jd_text)} chars): {job_description.filename}")
             except Exception as e:
                 log.warning(f"Could not extract JD text: {e}")
 
-        # 2. Extract uploaded resumes safely
+        # 2. Extract uploaded resumes — FIXED: use real name from resume text
         uploaded = []
         for f in resumes:
             if not f.filename:
                 continue
             try:
-                raw = await f.read()
+                raw  = await f.read()
                 text = extract_text(f.filename, raw)
+                name = extract_name_from_resume(text, f.filename)   # ← FIXED
+
                 uploaded.append({
-                    "candidate_name": f.filename.rsplit(".", 1)[0]
-                        .replace("_", " ").replace("-", " ").strip(),
-                    "email": "",
-                    "resume_text": text,
-                    "source": "upload",
+                    "candidate_name": name,
+                    "email":          "",
+                    "resume_text":    text,
+                    "source":         "upload",
                     "years_experience": 0,
-                    "education": {"degree": "Not specified", "university": "Not specified"},
+                    "education":      {"degree": "Not specified", "university": "Not specified"},
                     "skills": [], "tools": [], "projects": [], "soft_skills": [],
                 })
-                log.info(f"📝 Resume extracted ({len(text)} chars): {f.filename}")
+                log.info(f"📝 Resume extracted ({len(text)} chars): '{name}' from {f.filename}")
             except Exception as e:
                 log.warning(f"Skipping {f.filename}: {e}")
                 continue

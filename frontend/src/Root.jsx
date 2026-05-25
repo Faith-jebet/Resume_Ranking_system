@@ -1,9 +1,10 @@
-import React from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import App from './App';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { LoginPage } from './pages/LoginPage';
-import { SignupPage } from './pages/SignupPage';
+import React from "react";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import App from "./App";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { LoginPage } from "./pages/LoginPage";
+import { SignupPage } from "./pages/SignupPage";
+import { DocumentReviewPage } from "./pages/DocumentReviewPage";
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, isBootstrapping } = useAuth();
@@ -45,6 +46,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
       <Route
         path="/login"
         element={
@@ -53,6 +55,7 @@ function AppRoutes() {
           </PublicOnlyRoute>
         }
       />
+
       <Route
         path="/signup"
         element={
@@ -61,6 +64,7 @@ function AppRoutes() {
           </PublicOnlyRoute>
         }
       />
+
       <Route
         path="/dashboard"
         element={
@@ -69,6 +73,17 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+      {/* ── New: Document Review ─────────────────────────────────────────── */}
+      <Route
+        path="/document-review"
+        element={
+          <ProtectedRoute>
+            <DocumentReviewPage />
+          </ProtectedRoute>
+        }
+      />
+
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

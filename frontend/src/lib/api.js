@@ -1,7 +1,8 @@
-const API_BASE = import.meta.env.VITE_API_URL || "https://recruitai-backend-418779851337.us-central1.run.app";
+const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  "https://recruitai-backend-418779851337.us-central1.run.app";
 
-
-const TOKEN_KEY = 'recruitai_auth_token';
+const TOKEN_KEY = "recruitai_auth_token";
 
 export function getStoredToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -17,20 +18,14 @@ export function clearStoredToken() {
 
 async function parseResponse(response) {
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+    const error = await response.json().catch(() => ({ detail: "Unknown error" }));
     throw new Error(error.detail || `Server error: ${response.status}`);
   }
-
   return response.json();
 }
 
 /**
  * Send real resume files + JD file to the backend for AI ranking.
- *
- * @param {string}   jobTitle        - The job title entered by the user
- * @param {File[]}   resumeFiles     - Array of File objects (PDF/DOCX)
- * @param {File|null} jdFile         - Job description file (PDF/DOCX/TXT), optional
- * @param {object[]} gmailCandidates - Candidates already fetched from Gmail
  */
 export async function matchCandidates(
   jobTitle,
@@ -39,38 +34,21 @@ export async function matchCandidates(
   gmailCandidates = []
 ) {
   const formData = new FormData();
-
-  // Job title (required)
   formData.append("job_title", jobTitle);
-
-  // Resume files
-  resumeFiles.forEach((file) => {
-    formData.append("resumes", file);
-  });
-
-  // Job description file (optional)
-  if (jdFile) {
-    formData.append("job_description", jdFile);
-  }
-
-  // Gmail candidates as JSON string
-  if (gmailCandidates.length > 0) {
+  resumeFiles.forEach((file) => formData.append("resumes", file));
+  if (jdFile) formData.append("job_description", jdFile);
+  if (gmailCandidates.length > 0)
     formData.append("gmail_candidates", JSON.stringify(gmailCandidates));
-  }
 
   const response = await fetch(`${API_BASE}/api/match`, {
     method: "POST",
     body: formData,
-    // Do NOT set Content-Type — browser sets it automatically with boundary
   });
-
   return parseResponse(response);
 }
 
 /**
  * Fetch resumes from Gmail via the backend.
- *
- * @param {string} subject - Email subject filter
  */
 export async function fetchGmailResumes(subject = "Resume Analyzing") {
   const response = await fetch(`${API_BASE}/api/gmail/fetch`, {
@@ -78,38 +56,64 @@ export async function fetchGmailResumes(subject = "Resume Analyzing") {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ subject }),
   });
-
   return parseResponse(response);
 }
 
 export async function registerUser(payload) {
   const response = await fetch(`${API_BASE}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-
   return parseResponse(response);
 }
 
 export async function loginUser(payload) {
   const response = await fetch(`${API_BASE}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-
   return parseResponse(response);
 }
 
 export async function fetchCurrentUser(token = getStoredToken()) {
   if (!token) return null;
-
   const response = await fetch(`${API_BASE}/api/auth/me`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
   });
-
   return parseResponse(response);
+}
+
+// ── Document Review helpers ──────────────────────────────────────────────────
+
+/**
+ * Fetch candidate list + JD metadata for a given import session.
+ *
+ * @param {number} importId
+ * @returns {{ import_id, candidates, jd }}
+ */
+export async function fetchImportDocuments(importId) {
+  const response = await fetch(`${API_BASE}/api/imports/${importId}/documents`, {
+    headers: { Authorization: `Bearer ${getStoredToken()}` },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Build the URL that streams a document's PDF bytes.
+ * Used directly as the `file` prop in react-pdf's <Document>.
+ *
+ * We pass the JWT in a query param because react-pdf opens the URL
+ * in an internal fetch and cannot set custom headers.
+ *
+ * @param {number} docId
+ * @returns {string} URL string
+ */
+export function documentContentUrl(docId) {
+  const token = getStoredToken();
+  // token in query param is acceptable here because:
+  //  1. the URL is only used for same-session PDF rendering
+  //  2. it is never logged / persisted by the frontend
+  return `${API_BASE}/api/documents/${docId}/content?token=${encodeURIComponent(token ?? "")}`;
 }

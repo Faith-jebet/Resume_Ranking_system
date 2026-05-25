@@ -37,6 +37,7 @@ export function LoginPage() {
       description="Sign in to review candidates, rank resumes, and keep your hiring workflow moving."
       footer={<p className="text-sm text-slate-600">New here? <Link to="/signup" className="font-semibold text-blue-700 hover:text-blue-800">Create an account</Link>.</p>}
     >
+      
       <div className="space-y-1">
         <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Login</h2>
         <p className="text-sm leading-6 text-slate-600">Use your account to continue to the dashboard.</p>
