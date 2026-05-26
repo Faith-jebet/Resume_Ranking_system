@@ -20,20 +20,15 @@ export function Sidebar({ activeTab, onTabChange, onLogout }) {
   const isDashboard = location.pathname === "/dashboard";
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-slate-200 bg-white/90 backdrop-blur fixed left-0 top-0 shadow-sm">
+    <aside className="flex h-full w-full flex-col overflow-y-auto border-r border-slate-200 bg-white/90 backdrop-blur shadow-sm">
       {/* Logo */}
       <div className="px-6 py-7">
         <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-blue-800">
           RecruitAI
         </div>
-        <p className="mt-3 text-sm text-slate-500">Candidate ranking workspace</p>
       </div>
 
       <nav className="flex-1 px-3 space-y-0.5">
-        {/* ── Dashboard tabs ──────────────────────────────────────────────── */}
-        <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-          Workspace
-        </p>
 
         {TAB_ITEMS.map((item) => {
           const isActive = isDashboard && activeTab === item.label;
@@ -57,11 +52,6 @@ export function Sidebar({ activeTab, onTabChange, onLogout }) {
             </button>
           );
         })}
-
-        {/* ── Separate pages ───────────────────────────────────────────────── */}
-        <p className="mb-1 mt-4 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-          Review
-        </p>
 
         {ROUTE_ITEMS.map((item) => {
           const isActive = location.pathname === item.path;

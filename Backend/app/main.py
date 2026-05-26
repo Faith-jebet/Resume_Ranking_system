@@ -31,7 +31,7 @@ print(f"📁 Agent dir : {AGENT_DIR} (exists={os.path.exists(AGENT_DIR)})")
 
 # ── Env & stdlib ─────────────────────────────────────────────────────────────
 import io
-import re                          # ← ADDED for name extraction
+import re
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -119,7 +119,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Validation error handler (fixes CORS on 422 + binary data crashes) ───────
+# ── Validation error handler ──────────────────────────────────────────────────
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = []
@@ -146,9 +146,11 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 from .routes.auth  import router as auth_router
+from .routes.gmail import router as gmail_router
 from .routes.match import router as match_router
 
 app.include_router(auth_router,  prefix="/api")
+app.include_router(gmail_router, prefix="/api")
 app.include_router(match_router, prefix="/api")
 
 # ── MCP SSE endpoints ─────────────────────────────────────────────────────────
@@ -187,7 +189,6 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
         return ""
 
 def extract_text(filename: str, file_bytes: bytes) -> str:
-    """Safely extract text from PDF, DOCX, or TXT — never crashes on binary data."""
     if not file_bytes:
         return ""
     ext = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
@@ -200,9 +201,6 @@ def extract_text(filename: str, file_bytes: bytes) -> str:
     return ""
 
 # ── Name extraction helper ────────────────────────────────────────────────────
-# ADDED: reads the actual resume text to find the candidate's real name
-# instead of using the filename (which was causing "Unknown Candidate").
-
 _SKIP_KEYWORDS = {
     "resume", "curriculum", "cv", "objective", "summary", "experience",
     "education", "skills", "profile", "references", "http", "www",
@@ -213,33 +211,20 @@ def _clean_filename(filename: str) -> str:
     return filename.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").strip()
 
 def extract_name_from_resume(resume_text: str, fallback_filename: str) -> str:
-    """
-    Scan the first 8 non-empty lines of a resume for a person's name.
-    A valid name is 2–5 capitalised words that is not a section header,
-    email address, phone number, or URL.
-    Falls back to the cleaned filename if no name is detected.
-    """
     if not resume_text:
         return _clean_filename(fallback_filename)
-
     lines = [l.strip() for l in resume_text.splitlines() if l.strip()]
-
     for line in lines[:8]:
-        # Skip known section headers
         if any(kw in line.lower() for kw in _SKIP_KEYWORDS):
             continue
-        # Skip lines with email / URL characters
         if re.search(r"[@/\\|]", line):
             continue
-        # Skip lines with long digit runs (phone numbers, IDs)
         if re.search(r"\d{3,}", line):
             continue
         words = line.split()
         if 2 <= len(words) <= 5:
-            # Every alphabetic word must start with a capital letter
             if all(w[0].isupper() for w in words if w.isalpha()):
                 return line
-
     return _clean_filename(fallback_filename)
 
 # ── Pydantic models ───────────────────────────────────────────────────────────
@@ -330,6 +315,11 @@ def fetch_gmail_resumes(request: GmailFetchRequest):
     """Fetch resumes from Gmail filtered by subject."""
     try:
         from my_agent.tools.gmail_tool import fetch_resumes_from_gmail
+        from database.sqlite_db import (
+            create_import_session,
+            store_document,
+            link_candidate_document,
+        )
 
         if not request.subject or not request.subject.strip():
             raise HTTPException(
@@ -349,15 +339,44 @@ def fetch_gmail_resumes(request: GmailFetchRequest):
                 "message": f"No resumes found for subject: '{subject}'"
             }
 
-        # FIXED: extract real name from resume text instead of using filename
+        # ── Create import session ─────────────────────────────────────────────
+        import_id = create_import_session(
+            subject_filter=subject,
+            fetched_count=len(resumes),
+        )
+        log.info(f"📁 Created import session #{import_id}")
+
         candidates = []
         for r in resumes:
             resume_text  = r.get("resume_text", "")
             raw_filename = r.get("filename", "Unknown")
             name         = extract_name_from_resume(resume_text, raw_filename)
-            email        = r.get("email", "")   # sender email if gmail_tool provides it
-
+            email        = r.get("email", "")
             log.info(f"👤 Candidate parsed: '{name}' <{email or 'no email'}>")
+
+            # ── Store raw PDF bytes ───────────────────────────────────────────
+            resume_doc_id = None
+            raw_bytes = r.get("raw_bytes")
+            if raw_bytes:
+                try:
+                    resume_doc_id = store_document(
+                        import_session_id=import_id,
+                        doc_type="resume",
+                        filename=raw_filename,
+                        file_data=raw_bytes,
+                        mime_type=r.get("mime_type", "application/pdf"),
+                    )
+                    log.info(f"💾 Stored document #{resume_doc_id} for '{name}'")
+                except Exception as store_err:
+                    log.warning(f"Could not store document for '{name}': {store_err}")
+
+            # ── Link candidate to document ────────────────────────────────────
+            link_candidate_document(
+                import_session_id=import_id,
+                candidate_name=name,
+                candidate_email=email,
+                resume_doc_id=resume_doc_id,
+            )
 
             candidates.append({
                 "candidate_name": name,
@@ -369,16 +388,11 @@ def fetch_gmail_resumes(request: GmailFetchRequest):
                 "skills": [], "tools": [], "projects": [], "soft_skills": [],
             })
 
-        from database.sqlite_db import create_import_session
-        import_id = create_import_session(
-            subject_filter=subject,
-            fetched_count=len(candidates),
-        )
-
         return {
             "success":    True,
             "count":      len(candidates),
             "subject":    subject,
+            "import_id":  import_id,
             "candidates": candidates,
         }
 
@@ -400,7 +414,6 @@ async def match_candidates(
     try:
         from .services.agent_bridge import run_matching_pipeline
 
-        # 1. Extract JD text safely
         jd_text = ""
         if job_description and job_description.filename:
             try:
@@ -410,7 +423,6 @@ async def match_candidates(
             except Exception as e:
                 log.warning(f"Could not extract JD text: {e}")
 
-        # 2. Extract uploaded resumes — FIXED: use real name from resume text
         uploaded = []
         for f in resumes:
             if not f.filename:
@@ -418,8 +430,7 @@ async def match_candidates(
             try:
                 raw  = await f.read()
                 text = extract_text(f.filename, raw)
-                name = extract_name_from_resume(text, f.filename)   # ← FIXED
-
+                name = extract_name_from_resume(text, f.filename)
                 uploaded.append({
                     "candidate_name": name,
                     "email":          "",
@@ -434,7 +445,6 @@ async def match_candidates(
                 log.warning(f"Skipping {f.filename}: {e}")
                 continue
 
-        # 3. Parse Gmail candidates safely
         gmail_list = []
         if gmail_candidates:
             try:
@@ -443,14 +453,12 @@ async def match_candidates(
             except json.JSONDecodeError as e:
                 log.warning(f"Could not parse gmail_candidates JSON: {e}")
 
-        # 4. Combine & validate
         all_candidates = uploaded + gmail_list
         log.info(f"🚀 Total candidates: {len(all_candidates)}")
 
         if not all_candidates:
             raise HTTPException(status_code=400, detail="No candidates provided.")
 
-        # 5. Run pipeline
         return run_matching_pipeline(
             job_title=job_title,
             candidates=all_candidates,

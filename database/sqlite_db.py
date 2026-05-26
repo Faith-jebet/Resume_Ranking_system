@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-DEFAULT_DB_PATH = Path(os.getenv("RESUME_DB_PATH", "resumes.db"))
+DEFAULT_DB_PATH = Path(os.getenv("RESUME_DB_PATH", Path(__file__).resolve().parents[1] / "Backend" / "resumes.db"))
 
 
 def _connect(db_path: str | os.PathLike[str] | None = None) -> sqlite3.Connection:

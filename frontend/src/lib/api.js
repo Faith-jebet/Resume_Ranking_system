@@ -1,6 +1,6 @@
 const API_BASE =
   import.meta.env.VITE_API_URL ||
-  "https://recruitai-backend-418779851337.us-central1.run.app";
+  "http://localhost:8000";
 
 const TOKEN_KEY = "recruitai_auth_token";
 

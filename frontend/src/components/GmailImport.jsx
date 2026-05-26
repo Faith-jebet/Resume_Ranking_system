@@ -114,9 +114,9 @@ export function GmailImport({ onImport }) {
             </p>
           </div>
 
-          {/* Review button — only shown when backend returns an import_id */}
           {importId && (
             <button
+              type="button"
               onClick={() => navigate(`/document-review?import_id=${importId}`)}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
             >
