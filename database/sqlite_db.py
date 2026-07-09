@@ -16,6 +16,7 @@ def _connect(db_path: str | os.PathLike[str] | None = None) -> sqlite3.Connectio
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
@@ -32,6 +33,8 @@ def init_db(db_path: str | os.PathLike[str] | None = None) -> None:
                 description TEXT NOT NULL,
                 required_skills TEXT NOT NULL,
                 experience INTEGER,
+                category_id TEXT,
+                category_title TEXT,
                 created_at TEXT NOT NULL
             );
 
@@ -95,6 +98,15 @@ def init_db(db_path: str | os.PathLike[str] | None = None) -> None:
             );
             """
         )
+        # Add category columns to jobs table if they don't exist in case the table was created by older migrations
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN category_id TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN category_title TEXT")
+        except sqlite3.OperationalError:
+            pass
         conn.commit()
     finally:
         conn.close()
@@ -120,14 +132,16 @@ def insert_job(job_data: dict[str, Any], db_path: str | os.PathLike[str] | None 
     try:
         cursor = conn.execute(
             """
-            INSERT INTO jobs (title, description, required_skills, experience, created_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO jobs (title, description, required_skills, experience, category_id, category_title, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job_data.get("title", ""),
                 job_data.get("description", ""),
                 json.dumps(job_data.get("required_skills", [])),
                 job_data.get("experience"),
+                job_data.get("category_id"),
+                job_data.get("category_title"),
                 job_data.get("created_at") or "",
             ),
         )

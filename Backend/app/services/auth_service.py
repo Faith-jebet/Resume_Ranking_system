@@ -12,7 +12,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from database.connection import get_connection, get_cursor
 
 
-JWT_SECRET = os.getenv("AUTH_SECRET_KEY", "change-me-in-production")
+JWT_SECRET = os.getenv("AUTH_SECRET_KEY")
+if not JWT_SECRET:
+    raise RuntimeError("AUTH_SECRET_KEY environment variable must be set")
 JWT_ALGORITHM = "HS256"
 TOKEN_EXPIRE_MINUTES = int(os.getenv("AUTH_TOKEN_EXPIRE_MINUTES", "720"))
 

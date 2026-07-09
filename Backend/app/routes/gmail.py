@@ -1,82 +1,110 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+"""
+app/routes/gmail.py
+────────────────────
+POST /api/gmail/fetch — pull resumes from Gmail and persist them.
+"""
+
+import logging
 from typing import Optional
 
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
-router = APIRouter()
+from app.utils.text_extraction import extract_name_from_resume
+
+router = APIRouter(prefix="/api", tags=["Gmail"])
+log = logging.getLogger(__name__)
+
 
 class GmailFetchRequest(BaseModel):
-    subject: Optional[str] = "Resume Analyzing"
-    
+    subject: Optional[str] = None
+
+
 @router.post("/gmail/fetch")
 def fetch_gmail_resumes(request: GmailFetchRequest):
-    """Fetch resumes from Gmail and persist the import for document review."""
-    try: 
+    """Fetch resumes from Gmail filtered by subject, store raw bytes, and return candidates."""
+    try:
+        from my_agent.tools.gmail_tool import fetch_resumes_from_gmail
         from database.sqlite_db import (
             create_import_session,
-            link_candidate_document,
             store_document,
+            link_candidate_document,
         )
-        from my_agent.tools.gmail_tool import fetch_resumes_from_gmail
-        
-        # Fetch resumes from Gmail.
-        resumes = fetch_resumes_from_gmail(subject=request.subject)
 
-        import_id = create_import_session(
-            subject_filter=request.subject or "",
-            fetched_count=len(resumes),
-        )
-        
-        # Transform to the candidate shape used by the frontend and persist.
-        candidates = []
-        for resume in resumes:
-            filename = resume.get("filename") or "resume.pdf"
-            raw_bytes = resume.get("raw_bytes")
-            mime_type = resume.get("mime_type") or "application/octet-stream"
-            candidate_name = (
-                filename.replace(".pdf", "")
-                .replace(".txt", "")
-                .replace(".docx", "")
-                .replace("_", " ")
-                .strip()
+        if not request.subject or not request.subject.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Please provide an email subject to filter by.",
             )
 
+        subject = request.subject.strip()
+        resumes = fetch_resumes_from_gmail(subject=subject)
+        log.info(f"Fetched {len(resumes)} resumes for subject: '{subject}'")
+
+        if not resumes:
+            return {
+                "success": False,
+                "count": 0,
+                "candidates": [],
+                "message": f"No resumes found for subject: '{subject}'",
+            }
+
+        import_id = create_import_session(
+            subject_filter=subject,
+            fetched_count=len(resumes),
+        )
+        log.info(f"Created import session #{import_id}")
+
+        candidates = []
+        for r in resumes:
+            resume_text = r.get("resume_text", "")
+            raw_filename = r.get("filename", "Unknown")
+            name = extract_name_from_resume(resume_text, raw_filename)
+            email = r.get("email", "")
+            log.info(f"Candidate parsed: '{name}' <{email or 'no email'}>")
+
             resume_doc_id = None
+            raw_bytes = r.get("raw_bytes")
             if raw_bytes:
-                resume_doc_id = store_document(
-                    import_session_id=import_id,
-                    doc_type="resume",
-                    filename=filename,
-                    file_data=raw_bytes,
-                    mime_type=mime_type,
-                )
+                try:
+                    resume_doc_id = store_document(
+                        import_session_id=import_id,
+                        doc_type="resume",
+                        filename=raw_filename,
+                        file_data=raw_bytes,
+                        mime_type=r.get("mime_type", "application/pdf"),
+                    )
+                    log.info(f"Stored document #{resume_doc_id} for '{name}'")
+                except Exception as store_err:
+                    log.warning(f"Could not store document for '{name}': {store_err}")
 
             link_candidate_document(
                 import_session_id=import_id,
-                candidate_name=candidate_name,
-                candidate_email="",
+                candidate_name=name,
+                candidate_email=email,
                 resume_doc_id=resume_doc_id,
             )
 
-            candidate = {
-                "candidate_name": candidate_name,
-                "resume_text": resume.get("resume_text", ""),
+            candidates.append({
+                "candidate_name": name,
+                "email": email,
+                "resume_text": resume_text,
                 "source": "gmail",
                 "years_experience": 0,
-                "education": {},
-                "skills": [],
-                "tools": [],
-                "projects": [],
-                "soft_skills": []
-            }
-            candidates.append(candidate)
-        
+                "education": {"degree": "Not specified", "university": "Not specified"},
+                "skills": [], "tools": [], "projects": [], "soft_skills": [],
+            })
+
         return {
             "success": True,
-            "import_id": import_id,
             "count": len(candidates),
-            "candidates": candidates
+            "subject": subject,
+            "import_id": import_id,
+            "candidates": candidates,
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
+        log.error(f"Gmail fetch error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

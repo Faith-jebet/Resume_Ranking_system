@@ -1,4 +1,4 @@
-const API_BASE =
+export const API_BASE =
   import.meta.env.VITE_API_URL ||
   "http://localhost:8000";
 
@@ -31,7 +31,9 @@ export async function matchCandidates(
   jobTitle,
   resumeFiles = [],
   jdFile = null,
-  gmailCandidates = []
+  gmailCandidates = [],
+  categoryId = null,
+  categoryTitle = null
 ) {
   const formData = new FormData();
   formData.append("job_title", jobTitle);
@@ -39,10 +41,37 @@ export async function matchCandidates(
   if (jdFile) formData.append("job_description", jdFile);
   if (gmailCandidates.length > 0)
     formData.append("gmail_candidates", JSON.stringify(gmailCandidates));
+  if (categoryId)
+    formData.append("category_id", categoryId);
+  if (categoryTitle)
+    formData.append("category_title", categoryTitle);
 
   const response = await fetch(`${API_BASE}/api/match`, {
     method: "POST",
+    headers: { Authorization: `Bearer ${getStoredToken()}` },
     body: formData,
+  });
+  return parseResponse(response);
+}
+
+export async function fetchRecruiterJobs() {
+  const response = await fetch(`${API_BASE}/api/recruiter/jobs`, {
+    headers: { Authorization: `Bearer ${getStoredToken()}` },
+  });
+  return parseResponse(response);
+}
+
+export async function fetchRecruiterRankings(jobId) {
+  const response = await fetch(`${API_BASE}/api/recruiter/rankings/${jobId}`, {
+    headers: { Authorization: `Bearer ${getStoredToken()}` },
+  });
+  return parseResponse(response);
+}
+
+export async function deleteRecruiterJob(jobId) {
+  const response = await fetch(`${API_BASE}/api/recruiter/jobs/${jobId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${getStoredToken()}` },
   });
   return parseResponse(response);
 }
@@ -53,7 +82,10 @@ export async function matchCandidates(
 export async function fetchGmailResumes(subject = "Resume Analyzing") {
   const response = await fetch(`${API_BASE}/api/gmail/fetch`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getStoredToken()}`,
+    },
     body: JSON.stringify({ subject }),
   });
   return parseResponse(response);

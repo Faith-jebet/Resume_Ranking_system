@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, field_validator
 
 from ..services.auth_service import (
     authenticate_user,
@@ -8,6 +8,7 @@ from ..services.auth_service import (
     get_current_user,
     get_user_by_email,
 )
+from ..services.rate_limiter import rate_limit
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -17,6 +18,19 @@ class RegisterRequest(BaseModel):
     name: str
     email: str
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(c.islower() for c in v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit")
+        return v
 
 
 class LoginRequest(BaseModel):
@@ -37,7 +51,7 @@ def _build_auth_response(user):
     }
 
 
-@router.post("/register")
+@router.post("/register", dependencies=[Depends(rate_limit)])
 def register(request: RegisterRequest):
     existing_user = get_user_by_email(request.email)
     if existing_user:
@@ -50,7 +64,7 @@ def register(request: RegisterRequest):
     return _build_auth_response(user)
 
 
-@router.post("/login")
+@router.post("/login", dependencies=[Depends(rate_limit)])
 def login(request: LoginRequest):
     user = authenticate_user(request.email, request.password)
     if not user:

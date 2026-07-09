@@ -5,19 +5,15 @@ import { cn } from '../lib/utils';
 // ── Status config ─────────────────────────────────────────────────────────────
 // Adjust these thresholds here if you ever want to tune them.
 function getStatus(score) {
-  if (score >= 70) return { label: 'Shortlisted',   color: 'bg-emerald-50 text-emerald-700 border border-emerald-200' };
-  if (score >= 50) return { label: 'Good',          color: 'bg-blue-50    text-blue-700    border border-blue-200'    };
-  if (score >= 30) return { label: 'Average',       color: 'bg-amber-50   text-amber-700   border border-amber-200'   };
-  if (score >= 10) return { label: 'Weak',          color: 'bg-orange-50  text-orange-700  border border-orange-200'  };
-  return             { label: 'Rejected',           color: 'bg-rose-50    text-rose-700    border border-rose-200'    };
+  if (score >= 60) return { label: 'Shortlisted', color: 'bg-emerald-50 text-emerald-700 border border-emerald-200' };
+  if (score >= 40) return { label: 'Waitlisted',  color: 'bg-amber-50   text-amber-700   border border-amber-200'   };
+  return             { label: 'Rejected',          color: 'bg-rose-50    text-rose-700    border border-rose-200'    };
 }
 
 // ── Score bar colour ──────────────────────────────────────────────────────────
 function getBarColor(score) {
-  if (score >= 70) return 'bg-emerald-500';
-  if (score >= 50) return 'bg-blue-500';
-  if (score >= 30) return 'bg-amber-500';
-  if (score >= 10) return 'bg-orange-500';
+  if (score >= 60) return 'bg-emerald-500';
+  if (score >= 40) return 'bg-amber-500';
   return 'bg-rose-400';
 }
 
@@ -42,7 +38,6 @@ export function CandidateTable({ candidates, onDownloadReport }) {
               <th className="px-6 py-3 text-xs uppercase tracking-wider text-slate-500">Candidate</th>
               <th className="px-6 py-3 text-xs uppercase tracking-wider text-slate-500">Match</th>
               <th className="px-6 py-3 text-xs uppercase tracking-wider text-slate-500">Status</th>
-              <th className="px-6 py-3 text-right text-xs uppercase tracking-wider text-slate-500">Save</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -94,13 +89,6 @@ export function CandidateTable({ candidates, onDownloadReport }) {
                       {label}
                     </span>
                   </td>
-
-                  {/* Save */}
-                  <td className="px-6 py-4 text-right">
-                    <button className="rounded px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900">
-                      ★
-                    </button>
-                  </td>
                 </tr>
               );
             })}
@@ -110,11 +98,9 @@ export function CandidateTable({ candidates, onDownloadReport }) {
         {/* Legend */}
         <div className="flex flex-wrap gap-3 border-t border-slate-100 px-6 py-3">
           {[
-            { label: 'Shortlisted', color: 'bg-emerald-500', range: '70–100%' },
-            { label: 'Good',        color: 'bg-blue-500',    range: '50–69%'  },
-            { label: 'Average',     color: 'bg-amber-500',   range: '30–49%'  },
-            { label: 'Weak',        color: 'bg-orange-500',  range: '10–29%'  },
-            { label: 'Rejected',    color: 'bg-rose-400',    range: '0–9%'    },
+            { label: 'Shortlisted', color: 'bg-emerald-500', range: '60–100%' },
+            { label: 'Waitlisted',  color: 'bg-amber-500',   range: '40–59%'  },
+            { label: 'Rejected',    color: 'bg-rose-400',    range: '0–39%'   },
           ].map(({ label, color, range }) => (
             <div key={label} className="flex items-center gap-1.5 text-xs text-slate-500">
               <span className={cn('h-2 w-2 rounded-full', color)} />
