@@ -33,7 +33,7 @@ import {Factory, Cog, Wrench, HardHat, Truck, BadgeCheck, ShieldCheck, UtensilsC
     "blurb": "Building and maintaining residential, commercial, and industrial infrastructure across Kenya.",
     "icon": "HardHat",
     "openRoles": 1150,
-    "style": "dark"
+    "style": "light"
   },
   {
     "id": "logistics-supply-chain",
@@ -49,7 +49,7 @@ import {Factory, Cog, Wrench, HardHat, Truck, BadgeCheck, ShieldCheck, UtensilsC
     "blurb": "Ensuring products and manufacturing processes comply with national and international quality standards.",
     "icon": "BadgeCheck",
     "openRoles": 430,
-    "style": "light"
+    "style": "dark"
   },
   {
     "id": "health-safety",
@@ -81,7 +81,7 @@ import {Factory, Cog, Wrench, HardHat, Truck, BadgeCheck, ShieldCheck, UtensilsC
     "blurb": "Manufacturing garments, fabrics, and textile products for local and international markets.",
     "icon": "Shirt",
     "openRoles": 540,
-    "style": "dark"
+    "style": "light"
   },
   {
     "id": "automotive",
@@ -113,7 +113,7 @@ import {Factory, Cog, Wrench, HardHat, Truck, BadgeCheck, ShieldCheck, UtensilsC
     "blurb": "Providing administrative, financial, HR, and operational support for industrial organizations.",
     "icon": "Briefcase",
     "openRoles": 770,
-    "style": "dark"
+    "style": "light"
   },
   {
     "id": "security-facilities",

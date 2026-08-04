@@ -78,15 +78,23 @@ export async function deleteRecruiterJob(jobId) {
 
 /**
  * Fetch resumes from Gmail via the backend.
+ * @param {string} subject
+ * @param {string} [startDate]
+ * @param {string} [endDate]
  */
-export async function fetchGmailResumes(subject = "Resume Analyzing") {
+
+export async function fetchGmailResumes(subject = "Resume Analyzing", startDate = null, endDate = null) {
   const response = await fetch(`${API_BASE}/api/gmail/fetch`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${getStoredToken()}`,
     },
-    body: JSON.stringify({ subject }),
+    body: JSON.stringify({
+       subject,
+       start_date: startDate || null,
+       end_date: endDate || null,
+       }),
   });
   return parseResponse(response);
 }
@@ -148,4 +156,85 @@ export function documentContentUrl(docId) {
   //  1. the URL is only used for same-session PDF rendering
   //  2. it is never logged / persisted by the frontend
   return `${API_BASE}/api/documents/${docId}/content?token=${encodeURIComponent(token ?? "")}`;
+}
+
+
+// ── Categories & Specializations API ─────────────────────────────────────────
+
+export async function fetchCategories() {
+  const response = await fetch(`${API_BASE}/api/categories`, {
+    headers: { Authorization: `Bearer ${getStoredToken()}` },
+  });
+  return parseResponse(response);
+}
+
+export async function createCategory(categoryData) {
+  const response = await fetch(`${API_BASE}/api/categories`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getStoredToken()}`,
+    },
+    body: JSON.stringify(categoryData),
+  });
+  return parseResponse(response);
+}
+
+export async function updateCategory(categoryId, categoryData) {
+  const response = await fetch(`${API_BASE}/api/categories/${categoryId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getStoredToken()}`,
+    },
+    body: JSON.stringify(categoryData),
+  });
+  return parseResponse(response);
+}
+
+export async function deleteCategory(categoryId) {
+  const response = await fetch(`${API_BASE}/api/categories/${categoryId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${getStoredToken()}` },
+  });
+  return parseResponse(response);
+}
+
+export async function fetchSpecializations() {
+  const response = await fetch(`${API_BASE}/api/specializations`, {
+    headers: { Authorization: `Bearer ${getStoredToken()}` },
+  });
+  return parseResponse(response);
+}
+
+export async function createSpecialization(specializationData) {
+  const response = await fetch(`${API_BASE}/api/specializations`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getStoredToken()}`,
+    },
+    body: JSON.stringify(specializationData),
+  });
+  return parseResponse(response);
+}
+
+export async function updateSpecialization(specializationId, specializationData) {
+  const response = await fetch(`${API_BASE}/api/specializations/${specializationId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getStoredToken()}`,
+    },
+    body: JSON.stringify(specializationData),
+  });
+  return parseResponse(response);
+}
+
+export async function deleteSpecialization(specializationId) {
+  const response = await fetch(`${API_BASE}/api/specializations/${specializationId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${getStoredToken()}` },
+  });
+  return parseResponse(response);
 }

@@ -11,6 +11,11 @@ import {
   ListChecks,
   AlertCircle,
   Loader2,
+  Eye,
+  Plus,
+  Edit,
+  Trash2,
+  Download,
 } from "lucide-react";
 import { Navbar } from "../layout/Navbar";
 import { fetchGmailResumes, matchCandidates, getStoredToken, API_BASE } from "../../lib/api";
@@ -18,6 +23,7 @@ import { cn } from "../../lib/utils";
 import Footer from "../layout/Footer";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 async function fetchLatestImportId() {
   const token = getStoredToken();
@@ -71,13 +77,127 @@ function SectionCard({ icon: Icon, iconBg, title, description, children }) {
   );
 }
 
+function JDViewModal({ isOpen, onClose, jdFile, onUpload }) {
+  const [isUploading, setIsUploading] = useState(false);
+  const uploadInputRef = useRef(null);
+
+  if (!isOpen) return null;
+
+  const handleUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setIsUploading(true);
+      // Simulate upload
+      setTimeout(() => {
+        onUpload(file);
+        setIsUploading(false);
+      }, 1000);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900">Job Description</h2>
+          <button
+            onClick={onClose}
+            className="flex items-center justify-center w-8 h-8 rounded-full text-gray-400 hover:bg-gray-100 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div className="flex-1 overflow-auto p-6">
+          {jdFile ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">{jdFile.name}</h3>
+                  <p className="text-sm text-gray-500">
+                    {(jdFile.size / 1024).toFixed(1)} KB • {jdFile.type}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    const url = URL.createObjectURL(jdFile);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = jdFile.name;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Download size={14} />
+                  Download
+                </button>
+              </div>
+              
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Preview</h4>
+                <div className="h-96 overflow-auto bg-white border border-gray-200 rounded p-4">
+                  {jdFile.type === "application/pdf" ? (
+                    <p className="text-gray-500 italic">PDF preview would be shown here</p>
+                  ) : (
+                    <p className="text-gray-600 whitespace-pre-wrap">
+                      {jdFile.textContent || "File content would be displayed here"}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <FileText size={48} className="mx-auto text-gray-300 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Job Description Available</h3>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                There is no job description file uploaded for this position. 
+                You can upload a JD file to enable candidate ranking.
+              </p>
+              <input
+                ref={uploadInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.txt"
+                className="hidden"
+                onChange={handleUpload}
+              />
+              <button
+                onClick={() => uploadInputRef.current?.click()}
+                disabled={isUploading}
+                className="flex items-center gap-2 px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 mx-auto"
+              >
+                {isUploading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Plus size={16} />
+                )}
+                {isUploading ? "Uploading..." : "Upload JD File"}
+              </button>
+            </div>
+          )}
+        </div>
+        
+        <div className="p-6 border-t border-gray-200 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function JobVacancyPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
-  const jdInputRef   = useRef(null);
+  const jdInputRef = useRef(null);
   const [searchParams] = useSearchParams();
   const location = useLocation();
 
@@ -86,25 +206,30 @@ export function JobVacancyPage() {
 
   const category = selectedJob.category || null;
 
-  const [jobTitle, setJobTitle]       = useState(selectedJob.jobTitle || "");
+  const [jobTitle, setJobTitle] = useState(selectedJob.jobTitle || "");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const roleLabel = jobTitle || "AI Resume Ranking Engine";
 
-  const [resumes, setResumes]         = useState([]);
-  const [jdFile, setJdFile]           = useState(null);
+  const [resumes, setResumes] = useState([]);
+  const [jdFile, setJdFile] = useState(null);
   const [gmailSubject, setGmailSubject] = useState(selectedJob.jobTitle || "");
   const [gmailLoading, setGmailLoading] = useState(false);
-  const [gmailStatus, setGmailStatus]   = useState(null);
-  const [gmailError, setGmailError]     = useState("");
-  const [lastScan, setLastScan]         = useState(null);
+  const [gmailStatus, setGmailStatus] = useState(null);
+  const [gmailError, setGmailError] = useState("");
+  const [lastScan, setLastScan] = useState(null);
   const [gmailResumes, setGmailResumes] = useState([]);
-  const [ranking, setRanking]           = useState(false);
-  const [rankError, setRankError]       = useState(null);
-  const [dragging, setDragging]         = useState(false);
+  const [ranking, setRanking] = useState(false);
+  const [rankError, setRankError] = useState(null);
+  const [dragging, setDragging] = useState(false);
   const [pipelineStep, setPipelineStep] = useState(null);
 
   // "Review Resumes" button state
   const [reviewLoading, setReviewLoading] = useState(false);
-  const [reviewError, setReviewError]     = useState(null);
+  const [reviewError, setReviewError] = useState(null);
+
+  // JD View Modal state
+  const [showJDModal, setShowJDModal] = useState(false);
 
   const addFiles = (incoming) => {
     const pdfs = Array.from(incoming).filter(
@@ -130,7 +255,7 @@ export function JobVacancyPage() {
     setGmailStatus(null);
     setGmailError("");
     try {
-      const response = await fetchGmailResumes(gmailSubject);
+      const response = await fetchGmailResumes(gmailSubject, startDate, endDate);
       const fetched = response.resumes || response.candidates || (Array.isArray(response) ? response : []);
       if (!fetched.length) {
         setGmailStatus("error");
@@ -166,7 +291,7 @@ export function JobVacancyPage() {
 
   const handleRank = async () => {
     if (!jobTitle.trim()) { setRankError("Please enter a job title."); return; }
-    if (!totalCount)       { setRankError("Please upload resumes or fetch from Gmail."); return; }
+    if (!totalCount) { setRankError("Please upload resumes or fetch from Gmail."); return; }
 
     setRanking(true);
     setRankError(null);
@@ -181,14 +306,14 @@ export function JobVacancyPage() {
       );
       if (!results?.candidates?.length) throw new Error("No candidates returned from API.");
       if (!results?.job_id) throw new Error("No job ID returned from API.");
-      
+
       // Save criteria and results in sessionStorage as backup
       sessionStorage.setItem("rr_ranked_results", JSON.stringify({
         jobTitle,
         candidates: results.candidates,
-        criteria:   results.ranking_criteria,
+        criteria: results.ranking_criteria,
       }));
-      
+
       navigate(`/ranked-results?job_id=${results.job_id}`);
     } catch (err) {
       setRankError(err.message || "Ranking failed. Please try again.");
@@ -197,9 +322,21 @@ export function JobVacancyPage() {
     }
   };
 
+  const handleJDUpload = (file) => {
+    setJdFile(file);
+    setShowJDModal(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <Navbar />
+
+      <JDViewModal
+        isOpen={showJDModal}
+        onClose={() => setShowJDModal(false)}
+        jdFile={jdFile}
+        onUpload={handleJDUpload}
+      />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-6 py-8 flex flex-col gap-7">
 
@@ -213,7 +350,7 @@ export function JobVacancyPage() {
               <p className="mt-1 text-sm text-gray-400">
                 Recruitment Workflow &amp; Candidate Assessment Pipeline
               </p>
-              
+
               {/* Workflow Steps Indicator */}
               <div className="mt-4 flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Workflow:</span>
@@ -234,8 +371,8 @@ export function JobVacancyPage() {
                   <ChevronRight size={14} className="text-gray-300" />
                   <div className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors",
-                    totalCount > 0 
-                      ? "bg-amber-50 border border-amber-200 text-amber-700" 
+                    totalCount > 0
+                      ? "bg-amber-50 border border-amber-200 text-amber-700"
                       : "bg-gray-100 border border-gray-200 text-gray-400"
                   )}>
                     <span className={cn(
@@ -316,6 +453,28 @@ export function JobVacancyPage() {
               onChange={(e) => setGmailSubject(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition"
             />
+
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1">From</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-900 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1">Deadline</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-900 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition"
+                />
+              </div>
+            </div>
+
             {gmailStatus === "error" && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs font-medium">
                 <AlertCircle size={13} className="shrink-0" />
@@ -431,29 +590,41 @@ export function JobVacancyPage() {
                 </button>
               </div>
             )}
-            <button
-              onClick={() => {
-                if (!jdFile) return;
-                // Open JD file in a new window/tab for review
-                const url = URL.createObjectURL(jdFile);
-                const newWindow = window.open(url, '_blank');
-                if (newWindow) {
-                  newWindow.onload = () => URL.revokeObjectURL(url);
-                } else {
-                  // Fallback if popup blocked
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.download = jdFile.name;
-                  link.click();
-                  URL.revokeObjectURL(url);
-                }
-              }}
-              disabled={!jdFile}
-              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-semibold hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <FileText size={14} />
-              Review JD
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (!jdFile) {
+                    setShowJDModal(true);
+                    return;
+                  }
+                  // Open JD file in a new window/tab for review
+                  const url = URL.createObjectURL(jdFile);
+                  const newWindow = window.open(url, '_blank');
+                  if (newWindow) {
+                    newWindow.onload = () => URL.revokeObjectURL(url);
+                  } else {
+                    // Fallback if popup blocked
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = jdFile.name;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                  }
+                }}
+                disabled={!jdFile}
+                className="flex items-center justify-center gap-2 flex-1 px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-semibold hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <FileText size={14} />
+                Review JD
+              </button>
+              <button
+                onClick={() => setShowJDModal(true)}
+                className="flex items-center justify-center px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-colors"
+                title="View Job Description Details"
+              >
+                <Eye size={14} />
+              </button>
+            </div>
           </SectionCard>
         </div>
 

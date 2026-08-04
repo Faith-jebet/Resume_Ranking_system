@@ -96,6 +96,26 @@ def init_db(db_path: str | os.PathLike[str] | None = None) -> None:
                 FOREIGN KEY(resume_doc_id) REFERENCES documents(id) ON DELETE SET NULL,
                 FOREIGN KEY(import_session_id) REFERENCES import_sessions(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL UNIQUE,
+                description TEXT,
+                open_roles INTEGER DEFAULT 0,
+                icon TEXT,
+                style TEXT DEFAULT 'light',
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS specializations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL UNIQUE,
+                description TEXT,
+                positions INTEGER DEFAULT 0,
+                icon TEXT,
+                style TEXT DEFAULT 'light',
+                created_at TEXT NOT NULL
+            );
             """
         )
         # Add category columns to jobs table if they don't exist in case the table was created by older migrations
@@ -367,5 +387,145 @@ def get_document_content(
             "mime_type": row["mime_type"],
             "file_data": bytes(row["file_data"]),
         }
+    finally:
+        conn.close()
+
+
+# ── Categories & Specializations helpers ─────────────────────────────────────
+
+def insert_category(category_data: dict[str, Any], db_path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
+    conn = _connect(db_path)
+    try:
+        cursor = conn.execute(
+            """
+            INSERT INTO categories (title, description, open_roles, icon, style, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                category_data.get("title", ""),
+                category_data.get("description", ""),
+                category_data.get("open_roles", 0),
+                category_data.get("icon", "Briefcase"),
+                category_data.get("style", "light"),
+                category_data.get("created_at") or datetime.utcnow().isoformat(),
+            ),
+        )
+        conn.commit()
+        return {"category_id": str(cursor.lastrowid), **category_data}
+    finally:
+        conn.close()
+
+
+def get_all_categories(db_path: str | os.PathLike[str] | None = None) -> list[dict[str, Any]]:
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute("SELECT * FROM categories ORDER BY title").fetchall()
+        categories = _rows_to_dicts(rows)
+        for category in categories:
+            category["id"] = str(category.pop("id"))
+        return categories
+    finally:
+        conn.close()
+
+
+def update_category(category_id: str, category_data: dict[str, Any], db_path: str | os.PathLike[str] | None = None) -> bool:
+    conn = _connect(db_path)
+    try:
+        cursor = conn.execute(
+            """
+            UPDATE categories 
+            SET title = ?, description = ?, open_roles = ?, icon = ?, style = ?
+            WHERE id = ?
+            """,
+            (
+                category_data.get("title"),
+                category_data.get("description"),
+                category_data.get("open_roles"),
+                category_data.get("icon"),
+                category_data.get("style"),
+                category_id,
+            ),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def delete_category(category_id: str, db_path: str | os.PathLike[str] | None = None) -> bool:
+    conn = _connect(db_path)
+    try:
+        cursor = conn.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def insert_specialization(specialization_data: dict[str, Any], db_path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
+    conn = _connect(db_path)
+    try:
+        cursor = conn.execute(
+            """
+            INSERT INTO specializations (title, description, positions, icon, style, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                specialization_data.get("title", ""),
+                specialization_data.get("description", ""),
+                specialization_data.get("positions", 0),
+                specialization_data.get("icon", "Briefcase"),
+                specialization_data.get("style", "light"),
+                specialization_data.get("created_at") or datetime.utcnow().isoformat(),
+            ),
+        )
+        conn.commit()
+        return {"specialization_id": str(cursor.lastrowid), **specialization_data}
+    finally:
+        conn.close()
+
+
+def get_all_specializations(db_path: str | os.PathLike[str] | None = None) -> list[dict[str, Any]]:
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute("SELECT * FROM specializations ORDER BY title").fetchall()
+        specializations = _rows_to_dicts(rows)
+        for specialization in specializations:
+            specialization["id"] = str(specialization.pop("id"))
+        return specializations
+    finally:
+        conn.close()
+
+
+def update_specialization(specialization_id: str, specialization_data: dict[str, Any], db_path: str | os.PathLike[str] | None = None) -> bool:
+    conn = _connect(db_path)
+    try:
+        cursor = conn.execute(
+            """
+            UPDATE specializations 
+            SET title = ?, description = ?, positions = ?, icon = ?, style = ?
+            WHERE id = ?
+            """,
+            (
+                specialization_data.get("title"),
+                specialization_data.get("description"),
+                specialization_data.get("positions"),
+                specialization_data.get("icon"),
+                specialization_data.get("style"),
+                specialization_id,
+            ),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def delete_specialization(specialization_id: str, db_path: str | os.PathLike[str] | None = None) -> bool:
+    conn = _connect(db_path)
+    try:
+        cursor = conn.execute("DELETE FROM specializations WHERE id = ?", (specialization_id,))
+        conn.commit()
+        return cursor.rowcount > 0
     finally:
         conn.close()

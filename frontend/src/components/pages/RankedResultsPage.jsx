@@ -287,7 +287,7 @@ export function RankedResultsPage() {
               onClick={() => navigate("/ranked-results")}
               className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-600 hover:text-red-700 transition-colors"
             >
-              <ArrowLeft size={13} /> Back to Ranked Vacancies
+              <ArrowLeft size={13} /> Back to Ranked Jobs
             </button>
           </div>
 
@@ -714,7 +714,7 @@ export function RankedResultsPage() {
         {/* Header Hero */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 tracking-tight">
-            Ranked Vacancies
+            Ranked Jobs
           </h1>
           <p className="mt-1.5 text-sm text-gray-500 leading-relaxed max-w-2xl">
             View persistent AI-evaluated candidate ranking campaigns. Review shortlisted hires or clean up job postings once vacancies are successfully filled.

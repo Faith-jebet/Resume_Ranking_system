@@ -93,3 +93,102 @@ def delete_recruiter_job(job_id: int):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+# ── Categories & Specializations endpoints ─────────────────────────────────
+
+class CategoryIn(BaseModel):
+    title: str
+    description: str
+    open_roles: int = 0
+    icon: str = "Briefcase"
+    style: str = "light"
+
+class SpecializationIn(BaseModel):
+    title: str
+    description: str
+    positions: int = 0
+    icon: str = "Briefcase"
+    style: str = "light"
+
+@router.get("/categories")
+def get_categories():
+    try:
+        from database.sqlite_db import get_all_categories
+        categories = get_all_categories()
+        return categories
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/categories")
+def create_category(category: CategoryIn):
+    try:
+        from database.sqlite_db import insert_category
+        result = insert_category(category.model_dump())
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/categories/{category_id}")
+def update_category(category_id: str, category: CategoryIn):
+    try:
+        from database.sqlite_db import update_category
+        if not update_category(category_id, category.model_dump()):
+            raise HTTPException(status_code=404, detail="Category not found")
+        return {"status": "success", "message": f"Category {category_id} updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/categories/{category_id}")
+def delete_category_api(category_id: str):
+    try:
+        from database.sqlite_db import delete_category
+        if not delete_category(category_id):
+            raise HTTPException(status_code=404, detail="Category not found")
+        return {"status": "success", "message": f"Category {category_id} deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/specializations")
+def get_specializations():
+    try:
+        from database.sqlite_db import get_all_specializations
+        specializations = get_all_specializations()
+        return specializations
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/specializations")
+def create_specialization(specialization: SpecializationIn):
+    try:
+        from database.sqlite_db import insert_specialization
+        result = insert_specialization(specialization.model_dump())
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/specializations/{specialization_id}")
+def update_specialization(specialization_id: str, specialization: SpecializationIn):
+    try:
+        from database.sqlite_db import update_specialization
+        if not update_specialization(specialization_id, specialization.model_dump()):
+            raise HTTPException(status_code=404, detail="Specialization not found")
+        return {"status": "success", "message": f"Specialization {specialization_id} updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/specializations/{specialization_id}")
+def delete_specialization_api(specialization_id: str):
+    try:
+        from database.sqlite_db import delete_specialization
+        if not delete_specialization(specialization_id):
+            raise HTTPException(status_code=404, detail="Specialization not found")
+        return {"status": "success", "message": f"Specialization {specialization_id} deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

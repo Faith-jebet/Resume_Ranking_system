@@ -7,9 +7,10 @@ POST /api/gmail/fetch — pull resumes from Gmail and persist them.
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from my_agent.tools.gmail_tool import fetch_resumes_from_gmail
 from app.utils.text_extraction import extract_name_from_resume
 
 router = APIRouter(prefix="/api", tags=["Gmail"])
@@ -18,6 +19,8 @@ log = logging.getLogger(__name__)
 
 class GmailFetchRequest(BaseModel):
     subject: Optional[str] = None
+    start_date: Optional[str] = None #'YYYY-MM-DD'
+    end_date: Optional[str] = None #'YYYY-MM-DD'
 
 
 @router.post("/gmail/fetch")
@@ -38,8 +41,24 @@ def fetch_gmail_resumes(request: GmailFetchRequest):
             )
 
         subject = request.subject.strip()
-        resumes = fetch_resumes_from_gmail(subject=subject)
-        log.info(f"Fetched {len(resumes)} resumes for subject: '{subject}'")
+
+        # validate date range if both provided
+        if request.start_date and request.end_date and request.start_date > request.end_date:
+            raise HTTPException(
+                status_code=400,
+                detail="Start date must be before or equal to end date"
+            )
+
+        resumes = fetch_resumes_from_gmail(
+            subject=subject,
+            start_date=request.start_date,
+            end_date=request.end_date,
+        )
+
+        log.info(
+            f"Fetched {len(resumes)} resumes for subject: '{subject}'"
+            f"(range: {request.start_date or 'any'} -> {request.end_date or 'any'})"
+            )
 
         if not resumes:
             return {
