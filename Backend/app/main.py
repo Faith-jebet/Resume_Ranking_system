@@ -13,6 +13,12 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+AGENT_PATH = os.path.join(PROJECT_ROOT, "Agent")
+
+if AGENT_PATH not in sys.path:
+    sys.path.insert(0, AGENT_PATH)
+
 # 1. Get the directory where main.py actually lives
 current_dir = Path(__file__).resolve().parent
 
