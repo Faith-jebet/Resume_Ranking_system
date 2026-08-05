@@ -1,0 +1,10 @@
+node_modules
+.env
+*.db
+__pycache__/
+*.pyc
+*.pickle
+my_agent/tools/token.pickle
+my_agent/config/credentials.jsonmy_agent/config/credentials.json
+my_agent/config/credentials.json
+.venv/

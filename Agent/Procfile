@@ -1,0 +1,1 @@
+web: python -m my_agent.main
