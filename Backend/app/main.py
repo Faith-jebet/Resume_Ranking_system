@@ -1,199 +1,29 @@
-"""
-Backend/app/main.py
-────────────────────
-FastAPI entry point for the Resume Ranking System.
-This file is responsible for app setup only — no route logic lives here.
-All endpoints are registered via routers in app/routes/.
-"""
-
-# ── Path setup (must be first) ────────────────────────────────────────────────
-import sys
 import os
-
+import sys
 from pathlib import Path
-from dotenv import load_dotenv
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-AGENT_PATH = os.path.join(PROJECT_ROOT, "Agent")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+AGENT_PATH = PROJECT_ROOT / "Agent"
 
-if AGENT_PATH not in sys.path:
-    sys.path.insert(0, AGENT_PATH)
+sys.path.insert(0, str(AGENT_PATH))
 
-# 1. Get the directory where main.py actually lives
-current_dir = Path(__file__).resolve().parent
+print("=" * 70)
+print("Current working directory:", os.getcwd())
+print("PROJECT_ROOT:", PROJECT_ROOT)
+print("AGENT_PATH:", AGENT_PATH)
+print("Agent exists:", AGENT_PATH.exists())
 
-# 2. Point specifically to the .env file in that same directory
-env_path = current_dir / '.env'
+if AGENT_PATH.exists():
+    print("Agent contents:", os.listdir(AGENT_PATH))
 
-# 3. Load it explicitly
-load_dotenv(dotenv_path=env_path)
+print("sys.path:")
+for p in sys.path[:5]:
+    print(" ", p)
 
-print("--- DEBUGGING GOOGLE CONFIG ---")
-print("Target Env Path:", env_path)
-print("File Exists?:", env_path.exists())
-print("Loaded Client ID:", os.getenv("GOOGLE_CLIENT_ID"))
-print("-------------------------------")
-
-if sys.platform.startswith("win"):
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-        sys.stderr.reconfigure(encoding="utf-8")
-    except AttributeError:
-        pass
-
-MAIN_DIR     = os.path.dirname(os.path.abspath(__file__))
-BACKEND_DIR  = os.path.dirname(MAIN_DIR)
-PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
-AGENT_DIR    = os.path.join(PROJECT_ROOT, "Agent")
-
-for _path in (PROJECT_ROOT, AGENT_DIR):
-    if _path not in sys.path:
-        sys.path.insert(0, _path)
-
-# ── Env ───────────────────────────────────────────────────────────────────────
-import json
-import logging
-from contextlib import asynccontextmanager
-
-from dotenv import load_dotenv
-load_dotenv(os.path.join(PROJECT_ROOT, "Agent", ".env"))
-
-# ── FastAPI ───────────────────────────────────────────────────────────────────
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-
-# ── Logging ───────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(message)s",
-    datefmt="%H:%M:%S",
-)
-log = logging.getLogger(__name__)
-
-log.info(f"Project root : {PROJECT_ROOT}")
-log.info(f"Agent dir    : {AGENT_DIR} (exists={os.path.exists(AGENT_DIR)})")
-
-# ── Gmail token bootstrap (Cloud Run / Render env var) ────────────────────────
-_gmail_token = os.getenv("GMAIL_TOKEN")
-if _gmail_token:
-    _token_path = os.path.join(AGENT_DIR, "my_agent", "token.json")
-    os.makedirs(os.path.dirname(_token_path), exist_ok=True)
-    with open(_token_path, "w") as _f:
-        json.dump(json.loads(_gmail_token), _f)
-    log.info("Gmail token.json written from GMAIL_TOKEN env var")
-else:
-    log.info("No GMAIL_TOKEN env var — using local token.json")
-
-# ── MCP initialisation ────────────────────────────────────────────────────────
-mcp_app = None
 try:
-    from my_agent.mcp_server import app as mcp_app, init_db as mcp_init_db
-    mcp_init_db()
-    log.info("MCP app imported & SQLite DB initialised")
-except Exception as _e:
-    log.warning(f"MCP Server could not be initialised: {_e}")
+    import my_agent
+    print("SUCCESS: my_agent imported")
+except Exception as e:
+    print("FAILED:", repr(e))
 
-# ── SSE transport ─────────────────────────────────────────────────────────────
-_sse_available = False
-sse_transport = None
-try:
-    from mcp.server.sse import SseServerTransport
-    sse_transport = SseServerTransport("/api/mcp/messages/")
-    _sse_available = True
-except Exception as _e:
-    log.warning(f"SSE transport unavailable: {_e}")
-
-
-# ── Lifespan ──────────────────────────────────────────────────────────────────
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    log.info("RecruitAI backend starting up …")
-    yield
-    log.info("RecruitAI backend shutting down …")
-
-
-# ── App instance ──────────────────────────────────────────────────────────────
-app = FastAPI(
-    title="RecruitAI API",
-    description="Resume Ranking System — FastAPI + SQLite + MCP",
-    version="1.0.0",
-    lifespan=lifespan,
-)
-
-# ── CORS ──────────────────────────────────────────────────────────────────────
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://127.0.0.1:3000",
-    ],
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ── Error handlers ────────────────────────────────────────────────────────────
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    errors = [
-        {
-            "field": " -> ".join(str(loc) for loc in e.get("loc", [])),
-            "message": e.get("msg", "Validation error"),
-            "type": e.get("type", ""),
-        }
-        for e in exc.errors()
-    ]
-    log.warning(f"Validation error on {request.url.path}: {errors}")
-    return JSONResponse(status_code=422, content={"detail": "Request validation failed", "errors": errors})
-
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    log.error(f"Unhandled exception on {request.url}: {exc}")
-    return JSONResponse(status_code=500, content={"detail": "Internal server error", "error": str(exc)})
-
-
-# ── Routers ───────────────────────────────────────────────────────────────────
-from .routes.health    import router as health_router
-from .routes.auth      import router as auth_router
-from .routes.documents import router as documents_router
-from .routes.resumes   import router as resumes_router
-from .routes.jobs      import router as jobs_router
-from .routes.rankings  import router as rankings_router
-from .routes.gmail     import router as gmail_router
-from .routes.match     import router as match_router
-
-app.include_router(health_router)
-app.include_router(auth_router,      prefix="/api")
-app.include_router(documents_router)   # prefix="/api" is set inside the router
-app.include_router(resumes_router)
-app.include_router(jobs_router)
-app.include_router(rankings_router)
-app.include_router(gmail_router)
-app.include_router(match_router)
-
-# ── MCP SSE endpoints ─────────────────────────────────────────────────────────
-if _sse_available and sse_transport is not None:
-    @app.get("/api/mcp/sse", tags=["MCP"])
-    async def handle_sse(request: Request):
-        if mcp_app is None:
-            raise HTTPException(status_code=503, detail="MCP Server not initialised.")
-        log.info("New MCP SSE connection")
-        async with sse_transport.connect_sse(
-            request.scope, request.receive, request._send
-        ) as (read_stream, write_stream):
-            await mcp_app.run(read_stream, write_stream, mcp_app.create_initialization_options())
-
-    app.mount("/api/mcp/messages", sse_transport.handle_post_message)
-
-# ── Dev runner ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+print("=" * 70)
