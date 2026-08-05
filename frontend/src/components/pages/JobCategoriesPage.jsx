@@ -32,7 +32,7 @@ import {
 import { Navbar } from "../layout/Navbar";
 import { Footer } from "../layout/Footer";
 
-import { industrialCategories } from "../data/industrialCategories";
+import { industrialCategories } from "../data/IndustrialCategories";
 
 /* ------------------------------------------------------------------ */
 /* Brand tokens — keep identical in the listings file so both pages    */
