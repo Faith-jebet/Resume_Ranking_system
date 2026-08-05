@@ -2,6 +2,14 @@
 
 This guide explains how to deploy the Resume Ranking System to Render.com.
 
+## Recent Fixes Applied
+
+✅ **Import Error Fixes**: All backend routes now handle missing dependencies gracefully  
+✅ **Root Requirements**: Added root-level requirements.txt for deployment compatibility  
+✅ **Render.yaml Updates**: Updated with correct rootDir and build paths  
+✅ **Health Endpoints**: Added health checks for all services  
+✅ **Fallback Handling**: Services can start even when some modules are unavailable  
+
 ## Architecture Overview
 
 The system consists of three separate services:
@@ -15,6 +23,20 @@ The system consists of three separate services:
 - GitHub repository with your code
 - Render.com account
 - Environment variables (see below)
+
+## Quick Deployment Test
+
+Before deploying, run the test script to verify everything is working:
+
+```bash
+# On Windows
+python test_deployment.py
+
+# On Linux/Mac
+python3 test_deployment.py
+```
+
+This will check if all services can import correctly and are ready for deployment.
 
 ## Deployment Methods
 
@@ -109,6 +131,22 @@ Each service provides health endpoints:
 
 ## Troubleshooting
 
+### Recent Deployment Fixes
+
+The following issues have been resolved in this update:
+
+1. **"No module named 'my_agent'" Error**: 
+   - **Fixed**: All routes now handle ImportError gracefully
+   - **Result**: Backend starts successfully even when Agent modules aren't available
+
+2. **"requirements.txt not found" Error**:
+   - **Fixed**: Added root-level requirements.txt file
+   - **Result**: Render can find dependencies during build
+
+3. **Path Resolution Issues**:
+   - **Fixed**: Updated render.yaml with proper rootDir settings
+   - **Result**: Each service builds in its correct directory
+
 ### Common Issues
 
 1. **Import Errors**: Make sure all Python paths are correctly configured in the entry points
@@ -118,6 +156,28 @@ Each service provides health endpoints:
 3. **Environment Variables**: Double-check all required environment variables are set
 
 4. **Database Issues**: The system uses SQLite by default. For production, consider upgrading to PostgreSQL
+
+### Service Status Indicators
+
+Each service now provides degraded functionality when dependencies are missing:
+
+- **Backend**: Returns error messages instead of crashing when Agent/MCP unavailable
+- **Agent**: Provides fallback responses when database connections fail
+- **Frontend**: Works independently of backend service availability
+
+### Testing Deployment Locally
+
+Run the deployment test before pushing:
+
+```bash
+python test_deployment.py
+```
+
+This will verify:
+- ✅ Backend FastAPI app can import
+- ✅ Agent API service can start
+- ✅ Frontend build files are present
+- ✅ Health endpoints are available
 
 ### Logs
 

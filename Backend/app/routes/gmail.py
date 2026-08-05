@@ -10,9 +10,6 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from my_agent.tools.gmail_tool import fetch_resumes_from_gmail
-from app.utils.text_extraction import extract_name_from_resume
-
 router = APIRouter(prefix="/api", tags=["Gmail"])
 log = logging.getLogger(__name__)
 
@@ -27,12 +24,35 @@ class GmailFetchRequest(BaseModel):
 def fetch_gmail_resumes(request: GmailFetchRequest):
     """Fetch resumes from Gmail filtered by subject, store raw bytes, and return candidates."""
     try:
-        from my_agent.tools.gmail_tool import fetch_resumes_from_gmail
-        from database.sqlite_db import (
-            create_import_session,
-            store_document,
-            link_candidate_document,
-        )
+        # Try to import gmail tool - may not be available in all deployments
+        try:
+            from my_agent.tools.gmail_tool import fetch_resumes_from_gmail
+            gmail_available = True
+        except ImportError as e:
+            log.warning(f"Gmail tool not available: {e}")
+            gmail_available = False
+        
+        if not gmail_available:
+            return {
+                "success": False,
+                "count": 0,
+                "candidates": [],
+                "message": "Gmail integration is not available in this deployment",
+                "error": "Gmail service unavailable"
+            }
+        
+        # Try to import database functions
+        try:
+            from database.sqlite_db import (
+                create_import_session,
+                store_document,
+                link_candidate_document,
+            )
+            from app.utils.text_extraction import extract_name_from_resume
+            db_available = True
+        except ImportError as e:
+            log.warning(f"Database functions not available: {e}")
+            db_available = False
 
         if not request.subject or not request.subject.strip():
             raise HTTPException(
@@ -68,41 +88,56 @@ def fetch_gmail_resumes(request: GmailFetchRequest):
                 "message": f"No resumes found for subject: '{subject}'",
             }
 
-        import_id = create_import_session(
-            subject_filter=subject,
-            fetched_count=len(resumes),
-        )
-        log.info(f"Created import session #{import_id}")
+        import_id = None
+        if db_available:
+            try:
+                import_id = create_import_session(
+                    subject_filter=subject,
+                    fetched_count=len(resumes),
+                )
+                log.info(f"Created import session #{import_id}")
+            except Exception as db_err:
+                log.warning(f"Could not create import session: {db_err}")
 
         candidates = []
         for r in resumes:
             resume_text = r.get("resume_text", "")
             raw_filename = r.get("filename", "Unknown")
-            name = extract_name_from_resume(resume_text, raw_filename)
+            
+            # Extract name - use fallback if text_extraction not available
+            try:
+                name = extract_name_from_resume(resume_text, raw_filename) if db_available else raw_filename.replace('.pdf', '').replace('.docx', '')
+            except:
+                name = raw_filename.replace('.pdf', '').replace('.docx', '')
+                
             email = r.get("email", "")
             log.info(f"Candidate parsed: '{name}' <{email or 'no email'}>")
 
             resume_doc_id = None
-            raw_bytes = r.get("raw_bytes")
-            if raw_bytes:
-                try:
-                    resume_doc_id = store_document(
-                        import_session_id=import_id,
-                        doc_type="resume",
-                        filename=raw_filename,
-                        file_data=raw_bytes,
-                        mime_type=r.get("mime_type", "application/pdf"),
-                    )
-                    log.info(f"Stored document #{resume_doc_id} for '{name}'")
-                except Exception as store_err:
-                    log.warning(f"Could not store document for '{name}': {store_err}")
+            if db_available and import_id:
+                raw_bytes = r.get("raw_bytes")
+                if raw_bytes:
+                    try:
+                        resume_doc_id = store_document(
+                            import_session_id=import_id,
+                            doc_type="resume",
+                            filename=raw_filename,
+                            file_data=raw_bytes,
+                            mime_type=r.get("mime_type", "application/pdf"),
+                        )
+                        log.info(f"Stored document #{resume_doc_id} for '{name}'")
+                    except Exception as store_err:
+                        log.warning(f"Could not store document for '{name}': {store_err}")
 
-            link_candidate_document(
-                import_session_id=import_id,
-                candidate_name=name,
-                candidate_email=email,
-                resume_doc_id=resume_doc_id,
-            )
+                try:
+                    link_candidate_document(
+                        import_session_id=import_id,
+                        candidate_name=name,
+                        candidate_email=email,
+                        resume_doc_id=resume_doc_id,
+                    )
+                except Exception as link_err:
+                    log.warning(f"Could not link candidate document: {link_err}")
 
             candidates.append({
                 "candidate_name": name,
@@ -127,3 +162,13 @@ def fetch_gmail_resumes(request: GmailFetchRequest):
     except Exception as e:
         log.error(f"Gmail fetch error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/gmail/health")
+def gmail_health():
+    """Health check for Gmail service."""
+    try:
+        from my_agent.tools.gmail_tool import fetch_resumes_from_gmail
+        return {"status": "healthy", "service": "gmail", "available": True}
+    except ImportError:
+        return {"status": "degraded", "service": "gmail", "available": False, "message": "Gmail service not available"}

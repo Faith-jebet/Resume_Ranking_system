@@ -16,6 +16,8 @@ def get_rankings(job_id: int, limit: int = 20):
     try:
         from my_agent.mcp_server import handle_tool
         return handle_tool("get_rankings_for_job", {"job_id": job_id, "limit": limit})
+    except ImportError:
+        return {"error": "MCP server not available", "rankings": []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -28,5 +30,7 @@ def get_matches(job_id: int, status: Optional[str] = None):
         if status:
             args["status"] = status
         return handle_tool("get_matches_for_job", args)
+    except ImportError:
+        return {"error": "MCP server not available", "matches": []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

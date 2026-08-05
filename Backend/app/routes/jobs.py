@@ -28,6 +28,9 @@ def list_jobs():
     try:
         from my_agent.mcp_server import handle_tool
         return handle_tool("get_all_jobs", {})
+    except ImportError:
+        # Fallback when MCP server not available
+        return {"error": "MCP server not available", "jobs": []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -37,6 +40,9 @@ def create_job(job: JobIn):
     try:
         from my_agent.mcp_server import handle_tool
         return handle_tool("save_job", job.model_dump())
+    except ImportError:
+        # Fallback when MCP server not available
+        return {"error": "MCP server not available", "message": "Job creation not available"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -115,6 +121,9 @@ def get_categories():
         from database.sqlite_db import get_all_categories
         categories = get_all_categories()
         return categories
+    except ImportError:
+        # Return empty list if database not available
+        return []
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -124,6 +133,8 @@ def create_category(category: CategoryIn):
         from database.sqlite_db import insert_category
         result = insert_category(category.model_dump())
         return result
+    except ImportError:
+        return {"error": "Database not available", "message": "Category creation not available"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

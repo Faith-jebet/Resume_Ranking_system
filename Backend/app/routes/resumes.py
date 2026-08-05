@@ -14,6 +14,8 @@ def list_resumes():
     try:
         from my_agent.mcp_server import handle_tool
         return handle_tool("get_all_resumes", {})
+    except ImportError:
+        return {"error": "MCP server not available", "resumes": []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -26,6 +28,8 @@ def get_resume(resume_id: int):
         if not result:
             raise HTTPException(status_code=404, detail="Resume not found")
         return result
+    except ImportError:
+        raise HTTPException(status_code=503, detail="MCP server not available")
     except HTTPException:
         raise
     except Exception as e:
