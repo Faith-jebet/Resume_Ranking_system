@@ -87,22 +87,22 @@ export const CATEGORIES = industrialCategories;
 function Hero() {
   return (
     <section className="relative overflow-hidden" style={{ backgroundColor: BRAND.cream }}>
-      <div className="absolute -right-10 -top-6 hidden sm:block opacity-[0.06] pointer-events-none">
+      <div className="absolute -right-10 -top-6 hidden lg:block opacity-[0.06] pointer-events-none">
         <Banknote size={320} color={BRAND.red} strokeWidth={1} />
       </div>
-      <div className="relative max-w-6xl mx-auto px-6 sm:px-10 pt-16 pb-14">
+      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 pt-12 sm:pt-16 pb-10 sm:pb-14">
         <h1
-          className="text-4xl sm:text-5xl font-extrabold leading-[1.05] max-w-2xl"
+          className="text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-[1.05] max-w-2xl"
           style={{ color: BRAND.ink }}
         >
           Fast AI <span style={{ color: BRAND.red }} className="italic">Job Engine</span> and Tracking
         </h1>
-        <p className="mt-5 max-w-md text-[15px] leading-relaxed" style={{ color: BRAND.body }}>
+        <p className="mt-4 sm:mt-5 max-w-md text-sm sm:text-[15px] leading-relaxed" style={{ color: BRAND.body }}>
           Explore specialized career paths across Kenya's fastest-growing sectors. From
           industrial automation to sustainable agriculture, let FAJET match and rank
           roles against your profile.
         </p>
-        <div className="mt-7 flex flex-wrap gap-6">
+        <div className="mt-6 sm:mt-7 flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-6">
           <span
             className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider"
             style={{ color: BRAND.red }}
@@ -203,10 +203,10 @@ function CategoryCard({ category, onViewJobs }) {
 
 function CategoryGrid({ onViewJobs, categories = [], onAddSpecialization }) {
   return (
-    <section className="max-w-6xl mx-auto px-6 sm:px-10 py-16">
-      <div className="flex items-end justify-between flex-wrap gap-3 mb-8">
+    <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-12 sm:py-16">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-3 mb-6 sm:mb-8">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold" style={{ color: BRAND.ink }}>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold" style={{ color: BRAND.ink }}>
             Browse by specialization
           </h2>
           <p className="mt-2 text-sm max-w-md" style={{ color: BRAND.body }}>
@@ -214,16 +214,16 @@ function CategoryGrid({ onViewJobs, categories = [], onAddSpecialization }) {
             against the job description.
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
           <span
-            className="text-xs font-bold uppercase tracking-wider shrink-0"
+            className="text-xs font-bold uppercase tracking-wider order-2 sm:order-1"
             style={{ color: BRAND.body }}
           >
             {categories.length} specializations
           </span>
           <button
             onClick={onAddSpecialization}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-800 text-white text-sm font-semibold hover:bg-red-500 transition-colors shrink-0"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg bg-red-800 text-white text-sm font-semibold hover:bg-red-500 transition-colors w-full sm:w-auto justify-center sm:justify-start order-1 sm:order-2"
           >
             <Plus size={16} />
             Add Specialization
@@ -231,7 +231,7 @@ function CategoryGrid({ onViewJobs, categories = [], onAddSpecialization }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         {categories.map((category) => (
           <CategoryCard key={category.id} category={category} onViewJobs={onViewJobs} />
         ))}
@@ -244,13 +244,13 @@ function NotifySection() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   return (
-    <section className="max-w-6xl mx-auto px-6 sm:px-10 pb-10">
+    <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 pb-8 sm:pb-10">
       <div
-        className="rounded-2xl p-8 sm:p-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6"
+        className="rounded-2xl p-6 sm:p-8 lg:p-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6"
         style={{ backgroundColor: "#EFEBE5" }}
       >
         <div className="max-w-md">
-          <h3 className="text-2xl font-extrabold" style={{ color: BRAND.ink }}>
+          <h3 className="text-xl sm:text-2xl font-extrabold" style={{ color: BRAND.ink }}>
             Don't see your field?
           </h3>
           <p className="mt-2 text-sm leading-relaxed" style={{ color: BRAND.body }}>
@@ -263,9 +263,9 @@ function NotifySection() {
             e.preventDefault();
             if (email.trim()) setSubmitted(true);
           }}
-          className="flex flex-col gap-2 w-full sm:w-auto"
+          className="flex flex-col gap-3 w-full lg:w-auto"
         >
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="email"
               required
@@ -277,13 +277,13 @@ function NotifySection() {
             />
             <button
               type="submit"
-              className="px-5 py-3 rounded-lg text-xs font-bold uppercase tracking-wider text-white shrink-0"
+              className="px-4 sm:px-5 py-3 rounded-lg text-xs sm:text-sm font-bold uppercase tracking-wider text-white shrink-0 w-full sm:w-auto"
               style={{ backgroundColor: BRAND.red }}
             >
               Notify me
             </button>
           </div>
-          <span className="text-[11px]" style={{ color: BRAND.body }}>
+          <span className="text-[11px] sm:text-xs text-center sm:text-left" style={{ color: BRAND.body }}>
             {submitted ? "You're on the list — no spam, only opportunities." : "No spam. Only opportunities."}
           </span>
         </form>
@@ -349,20 +349,20 @@ function AddCategoryModal({ isOpen, onClose, onSave, editingCategory, mode = "ca
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">
+      <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col mx-4">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 shrink-0">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">
             {editingCategory ? `Edit ${title}` : `Add New ${title}`}
           </h2>
           <button
             onClick={onClose}
-            className="flex items-center justify-center w-8 h-8 rounded-full text-gray-400 hover:bg-gray-100 transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-full text-gray-400 hover:bg-gray-100 transition-colors shrink-0"
           >
             <X size={20} />
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="flex-1 overflow-auto p-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-auto p-4 sm:p-6">
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -373,7 +373,7 @@ function AddCategoryModal({ isOpen, onClose, onSave, editingCategory, mode = "ca
                 required
                 value={formData.title}
                 onChange={(e) => setFormData({...formData, title: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 placeholder={`Enter ${title.toLowerCase()} title`}
               />
             </div>
@@ -386,76 +386,79 @@ function AddCategoryModal({ isOpen, onClose, onSave, editingCategory, mode = "ca
                 required
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 min-h-[80px]"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 min-h-[80px] resize-none"
                 placeholder={`Enter ${title.toLowerCase()} description`}
+                rows={3}
               />
             </div>
             
-            {mode === "category" ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {mode === "category" ? (
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Open Roles
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.open_roles}
+                    onChange={(e) => setFormData({...formData, open_roles: parseInt(e.target.value) || 0})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Number of open roles"
+                  />
+                </div>
+              ) : (
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Open Positions
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.positions}
+                    onChange={(e) => setFormData({...formData, positions: parseInt(e.target.value) || 0})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Number of open positions"
+                  />
+                </div>
+              )}
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Open Roles
+                  Icon
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.open_roles}
-                  onChange={(e) => setFormData({...formData, open_roles: parseInt(e.target.value) || 0})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  placeholder="Number of open roles"
-                />
+                <select
+                  value={formData.icon}
+                  onChange={(e) => setFormData({...formData, icon: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  {iconOptions.map(icon => (
+                    <option key={icon} value={icon}>{icon}</option>
+                  ))}
+                </select>
               </div>
-            ) : (
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Open Positions
+                  Style
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.positions}
-                  onChange={(e) => setFormData({...formData, positions: parseInt(e.target.value) || 0})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  placeholder="Number of open positions"
-                />
+                <select
+                  value={formData.style}
+                  onChange={(e) => setFormData({...formData, style: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
               </div>
-            )}
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Icon
-              </label>
-              <select
-                value={formData.icon}
-                onChange={(e) => setFormData({...formData, icon: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              >
-                {iconOptions.map(icon => (
-                  <option key={icon} value={icon}>{icon}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Style
-              </label>
-              <select
-                value={formData.style}
-                onChange={(e) => setFormData({...formData, style: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
             </div>
           </div>
         </form>
         
-        <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+        <div className="p-4 sm:p-6 border-t border-gray-200 flex flex-col sm:flex-row justify-end gap-3 shrink-0">
           <button
             onClick={onClose}
-            className="px-6 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+            className="px-6 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-700 font-semibold hover:bg-gray-50 transition-colors order-2 sm:order-1"
             type="button"
           >
             Cancel
@@ -463,7 +466,7 @@ function AddCategoryModal({ isOpen, onClose, onSave, editingCategory, mode = "ca
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors order-1 sm:order-2"
             type="button"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}

@@ -1,0 +1,91 @@
+services:
+  # Backend API Service
+  - type: web
+    name: resume-ranking-backend
+    env: python
+    region: oregon
+    plan: starter
+    buildCommand: "cd Backend && pip install -r requirements.txt"
+    startCommand: "cd Backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: ENVIRONMENT
+        value: "production"
+      - key: DATABASE_URL
+        generateValue: true
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: "*"
+      # Add your environment variables here
+      - key: GOOGLE_CLIENT_ID
+        sync: false  # Set manually in Render dashboard
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false  # Set manually in Render dashboard
+      - key: GMAIL_TOKEN
+        sync: false  # Set manually in Render dashboard
+    healthCheckPath: "/health"
+    
+  # Agent Service
+  - type: web
+    name: resume-ranking-agent
+    env: python
+    region: oregon
+    plan: starter
+    buildCommand: "cd Agent && pip install -r requirements.txt"
+    startCommand: "cd Agent && python -m my_agent.main"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: ENVIRONMENT
+        value: "production"
+      - key: BACKEND_SERVICE_URL
+        fromService:
+          type: web
+          name: resume-ranking-backend
+          property: host
+      # Add your agent environment variables here
+      - key: GROQ_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        sync: false  # Set manually in Render dashboard
+    
+  # Frontend Static Site
+  - type: static
+    name: resume-ranking-frontend
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: "cd frontend && npm install && npm run build"
+    staticPublishPath: "frontend/dist"
+    pullRequestPreviewsEnabled: true
+    headers:
+      - path: "/*"
+        name: "X-Frame-Options"
+        value: "DENY"
+      - path: "/*"
+        name: "X-Content-Type-Options"
+        value: "nosniff"
+    routes:
+      - type: rewrite
+        source: "/*"
+        destination: "/index.html"
+    envVars:
+      - key: NODE_VERSION
+        value: "18"
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: resume-ranking-backend
+          property: host
+      - key: VITE_AGENT_URL
+        fromService:
+          type: web
+          name: resume-ranking-agent
+          property: host
+
+databases:
+  # Optional: Add PostgreSQL database for production
+  # - name: resume-ranking-db
+  #   plan: starter
