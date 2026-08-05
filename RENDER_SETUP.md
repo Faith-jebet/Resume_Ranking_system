@@ -106,11 +106,20 @@ After deployment, check:
 ### "No module named 'my_agent'"
 - **Fix:** Set `Root Directory` to `Agent` in service settings
 
+### "No module named 'openai'"
+- **Fix:** Already fixed in commit 37f7aec5. Redeploy to get the updated requirements.txt
+
 ### "requirements.txt not found"
 - **Fix:** Ensure `Root Directory` is set correctly
 
 ### Services can't communicate
 - **Fix:** Set `BACKEND_SERVICE_URL` in Agent environment variables
+
+### "GROQ_API_KEY not found"
+- **Fix:** Set `GROQ_API_KEY` environment variable in Agent service settings
+
+### "AUTH_SECRET_KEY environment variable must be set"
+- **Fix:** Set `AUTH_SECRET_KEY` environment variable in Backend service settings
 
 ## Current Service URLs
 
