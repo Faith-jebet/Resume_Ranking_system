@@ -121,16 +121,18 @@ function Hero() {
   );
 }
 
-function CategoryCard({ category, onViewJobs }) {
+function CategoryCard({ category, onViewJobs, index }) {
   const Icon = resolveIcon(category.icon);
-  const isDark = category.style === "dark";
+  // Alternate: even index = red, odd index = cream white
+  const isRed = index % 2 === 0;
   const openRoles = category.open_roles || category.openRoles || category.positions || 0;
   const description = category.description || category.blurb || "";
 
   const base =
     "group relative rounded-2xl border flex flex-col justify-between p-6 transition-all duration-200 cursor-pointer hover:-translate-y-0.5 h-full";
 
-  if (isDark) {
+  if (isRed) {
+    // Red card
     return (
       <div
         onClick={() => onViewJobs(category)}
@@ -156,18 +158,19 @@ function CategoryCard({ category, onViewJobs }) {
             className="text-xs font-bold uppercase tracking-wider bg-white px-4 py-2.5 rounded-lg flex items-center gap-1.5 group-hover:gap-2.5 transition-all shrink-0"
             style={{ color: BRAND.red }}
           >
-            Explore <ArrowRight size={13} />
+            Explore<ArrowRight size={13} />
           </button>
         </div>
       </div>
     );
   }
 
+  // Cream white card
   return (
     <div
       onClick={() => onViewJobs(category)}
       className={`${base} hover:shadow-lg`}
-      style={{ backgroundColor: BRAND.card, borderColor: "#ECE5DF" }}
+      style={{ backgroundColor: BRAND.cream, borderColor: "#ECE5DF" }}
     >
       <div>
         <div
@@ -232,8 +235,8 @@ function CategoryGrid({ onViewJobs, categories = [], onAddSpecialization }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-        {categories.map((category) => (
-          <CategoryCard key={category.id} category={category} onViewJobs={onViewJobs} />
+        {categories.map((category, index) => (
+          <CategoryCard key={category.id} category={category} onViewJobs={onViewJobs} index={index} />
         ))}
       </div>
     </section>
