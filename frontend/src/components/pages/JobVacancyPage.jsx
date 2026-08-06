@@ -259,7 +259,9 @@ export function JobVacancyPage() {
       const fetched = response.resumes || response.candidates || (Array.isArray(response) ? response : []);
       if (!fetched.length) {
         setGmailStatus("error");
-        setGmailError("No resumes found in your inbox.");
+        setGmailError(
+          `No resumes found matching "${gmailSubject || 'Resume Analyzing'}"${startDate || endDate ? ' in the selected date range' : ''}. Try: (1) Check email subject matches, (2) Remove date filters, (3) Verify Gmail is connected with permissions`
+        );
       } else {
         setGmailResumes(fetched);
         setGmailStatus("success");
