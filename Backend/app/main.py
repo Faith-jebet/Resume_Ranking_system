@@ -165,18 +165,29 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
+# Get allowed origins from environment variable or use defaults
+allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:5174", 
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:3000",
+    "https://resume-ranking-system-vh6i-git-main-faith-jebets-projects.vercel.app",
+    "https://resume-ranking-systemz.onrender.com",
+]
+
+# Add any additional origins from environment variable
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    allowed_origins.append(frontend_url)
+    log.info(f"Added FRONTEND_URL to CORS origins: {frontend_url}")
+
+log.info(f"CORS allowed origins: {allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174", 
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://127.0.0.1:3000",
-        "https://resume-ranking-system-vh6i-git-main-faith-jebets-projects.vercel.app",
-        "https://resume-ranking-systemz.onrender.com",
-    ],
+    allow_origins=allowed_origins,
     allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$|https://.*\.vercel\.app$|https://.*\.netlify\.app$|https://.*\.onrender\.com$",
     allow_credentials=True,
     allow_methods=["*"],

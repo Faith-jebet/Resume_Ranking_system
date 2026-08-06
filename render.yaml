@@ -19,6 +19,8 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         value: "*"
+      - key: FRONTEND_URL
+        value: "https://resume-ranking-system-vh6i-git-main-faith-jebets-projects.vercel.app"
       # Add your environment variables here
       - key: GOOGLE_CLIENT_ID
         sync: false  # Set manually in Render dashboard
