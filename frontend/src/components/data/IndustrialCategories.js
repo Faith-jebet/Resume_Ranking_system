@@ -129,6 +129,6 @@ import {Factory, Cog, Wrench, HardHat, Truck, BadgeCheck, ShieldCheck, UtensilsC
     "blurb": "Processing agricultural products and supporting Kenya's tea, coffee, horticulture, and food production industries.",
     "icon": "Wheat",
     "openRoles": 890,
-    "style": "dark"
+    "style": "light"
   }
 ];

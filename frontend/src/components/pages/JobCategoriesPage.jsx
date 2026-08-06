@@ -158,7 +158,7 @@ function CategoryCard({ category, onViewJobs, index }) {
             className="text-xs font-bold uppercase tracking-wider bg-white px-4 py-2.5 rounded-lg flex items-center gap-1.5 group-hover:gap-2.5 transition-all shrink-0"
             style={{ color: BRAND.red }}
           >
-            Explore<ArrowRight size={13} />
+            View Jobs<ArrowRight size={13} />
           </button>
         </div>
       </div>
