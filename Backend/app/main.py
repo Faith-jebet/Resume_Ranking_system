@@ -190,9 +190,17 @@ app.add_middleware(
     allow_origins=allowed_origins,
     allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$|https://.*\.vercel\.app$|https://.*\.netlify\.app$|https://.*\.onrender\.com$",
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+    expose_headers=["*"],
+    max_age=3600,
 )
+
+# ── Global OPTIONS handler for CORS preflight ─────────────────────────────────
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str):
+    """Handle CORS preflight requests for all routes"""
+    return JSONResponse(content={}, status_code=200)
 
 # ── Error handlers ────────────────────────────────────────────────────────────
 @app.exception_handler(RequestValidationError)
